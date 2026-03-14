@@ -335,6 +335,16 @@ function getWinner(session) {
   return getRankedPlayers(session)[0];
 }
 
+function getCurrentDealer(session) {
+  const firstDealer = session.rules && session.rules.firstDealer;
+  if (!firstDealer) return null;
+  const players = session.players;
+  const startIdx = players.findIndex(p => p.name === firstDealer);
+  if (startIdx === -1) return null;
+  const idx = (startIdx + session.rounds.length) % players.length;
+  return players[idx];
+}
+
 /* ============================================================
    ROUTER  — hash-based SPA routing
    ============================================================ */
@@ -526,11 +536,17 @@ function renderSetup() {
     <form id="setup-form">
       <div class="form-section">
         <h2 class="section-title">Players</h2>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">Players</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">🃏 = First Dealer</span>
+        </div>
         <div id="player-list">
           ${['Ravi', 'Krishna', 'Sunil', 'Vivek', 'Sashi', 'Ashok D', 'Ashok A'].map((name, idx) => {
             const i = idx + 1;
             return `
             <div class="player-row">
+              <input type="radio" name="first-dealer" class="dealer-radio" title="First dealer"
+                     ${i === 1 ? 'checked' : ''} style="accent-color:var(--primary);width:16px;height:16px;flex-shrink:0;cursor:pointer">
               <span class="player-num">${i}</span>
               <input type="text" class="input player-input"
                      placeholder="Player ${i} name"
@@ -551,6 +567,8 @@ function renderSetup() {
           + Add Player
         </button>
       </div>
+
+      <button type="submit" class="btn btn-primary btn-block" style="margin-bottom:16px">Start Game →</button>
 
       <div class="form-section">
         <h2 class="section-title">Rules</h2>
@@ -586,7 +604,6 @@ function renderSetup() {
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block">Start Game →</button>
     </form>
   `);
 
@@ -602,6 +619,8 @@ function addPlayerRow() {
   const row = document.createElement('div');
   row.className = 'player-row';
   row.innerHTML = `
+    <input type="radio" name="first-dealer" class="dealer-radio" title="First dealer"
+           style="accent-color:var(--primary);width:16px;height:16px;flex-shrink:0;cursor:pointer">
     <span class="player-num">${i}</span>
     <input type="text" class="input player-input"
            placeholder="Player ${i} name" maxlength="20">
@@ -663,11 +682,14 @@ function handleSetupSubmit(e) {
   const midDropScore   = parseInt(document.getElementById('mid-drop-score').value)  || 40;
   const fullCountScore = parseInt(document.getElementById('full-count-score').value)|| 80;
 
+  const dealerRow = document.querySelector('#player-list .dealer-radio:checked')?.closest('.player-row');
+  const firstDealer = dealerRow ? dealerRow.querySelector('.player-input').value.trim() : names[0];
+
   // Complete any existing active session before starting a new one
   const existing = Store.getActiveSession();
   if (existing) Store.completeSession(existing.id);
 
-  const session = Store.createSession(names, { targetScore, winCondition, gameAmount, dropScore, midDropScore, fullCountScore });
+  const session = Store.createSession(names, { targetScore, winCondition, gameAmount, dropScore, midDropScore, fullCountScore, firstDealer });
   Router.navigate(`/game/${session.id}`);
 }
 
@@ -726,16 +748,19 @@ function renderGame(params) {
   }
 
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
-  const rejoined = Object.keys(session.adjustments || {});
+  const rejoined     = Object.keys(session.adjustments || {});
+  const currentDealer = getCurrentDealer(session);
   const rankHtml = `
     <div class="rank-list" style="margin-bottom:14px">
       ${ranked.map((p, i) => {
         const isOut      = knockedOut.includes(p.id);
         const hasRejoined = rejoined.includes(p.id);
+        const isDealer   = currentDealer && p.id === currentDealer.id;
         return `
-          <div class="rank-item ${i === 0 && !isOut ? 'rank-first' : ''} ${isOut ? 'rank-out' : ''}">
+          <div class="rank-item ${i === 0 && !isOut ? 'rank-first' : ''} ${isOut ? 'rank-out' : ''} ${isDealer ? 'rank-dealer' : ''}">
             <span class="rank-pos">${i + 1}</span>
             <span class="rank-name">${p.name}</span>
+            ${isDealer    ? `<span class="badge badge-dealer">🃏</span>` : ''}
             ${isOut       ? `<span class="badge badge-out">OUT</span>` : ''}
             ${hasRejoined ? `<span class="badge badge-rejoin">R</span>` : ''}
             <span class="rank-score">${p.total}</span>
@@ -756,8 +781,8 @@ function renderGame(params) {
 
   /* Action buttons */
   const endGameBtnHtml = isActive ? `
-    <div class="game-actions" style="margin-bottom:12px">
-      <button class="btn btn-outline btn-danger"
+    <div class="game-actions" style="margin-top:4px;margin-bottom:4px">
+      <button class="btn btn-sm btn-outline btn-danger"
               onclick="confirmEndGame('${session.id}')">End Game</button>
     </div>` : '';
 
