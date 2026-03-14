@@ -736,13 +736,15 @@ function renderGame(params) {
        </div>`;
 
   /* Action buttons */
-  const actionsHtml = isActive ? `
-    <div class="fab-container">
-      <button class="fab" onclick="showAddRoundModal('${session.id}')">+ Round</button>
-    </div>
-    <div class="game-actions">
+  const endGameBtnHtml = isActive ? `
+    <div class="game-actions" style="margin-bottom:12px">
       <button class="btn btn-outline btn-danger"
               onclick="confirmEndGame('${session.id}')">End Game</button>
+    </div>` : '';
+
+  const bottomActionsHtml = isActive ? `
+    <div class="fab-container">
+      <button class="fab" onclick="showAddRoundModal('${session.id}')">+ Round</button>
     </div>` : `
     <div class="game-actions">
       <button class="btn btn-outline"
@@ -752,9 +754,10 @@ function renderGame(params) {
   setContent(`
     <div>
       ${completedHtml}
+      ${endGameBtnHtml}
       ${rankHtml}
       <div class="score-table-wrapper">${tableHtml}</div>
-      ${actionsHtml}
+      ${bottomActionsHtml}
     </div>
   `);
 }
