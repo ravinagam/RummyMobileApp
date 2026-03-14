@@ -1,6 +1,83 @@
 'use strict';
 
 /* ============================================================
+   FIREBASE CONFIG
+   Fill in your Firebase project details below.
+   Steps:
+     1. Go to https://console.firebase.google.com
+     2. Create a project (or use an existing one)
+     3. Add a Web App  → copy the firebaseConfig object
+     4. Go to Firestore Database → Create database → Start in test mode
+     5. Paste the values below
+   ============================================================ */
+
+const FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyDPBG8aKWe_JLeLDz-lbV8Kea7TZPulJf0',
+  authDomain:        'rummy-d1e08.firebaseapp.com',
+  projectId:         'rummy-d1e08',
+  storageBucket:     'rummy-d1e08.firebasestorage.app',
+  messagingSenderId: '928659183389',
+  appId:             '1:928659183389:web:5cd159563d8ef2467533f4',
+};
+
+/* ============================================================
+   CLOUD SYNC  — Firebase Firestore (optional)
+   If FIREBASE_CONFIG is not filled in, the app works with
+   localStorage only (same as before).
+   ============================================================ */
+
+const CloudSync = {
+  _ready: false,
+  _docRef: null,
+  _pushing: false,
+
+  init() {
+    const configured = FIREBASE_CONFIG.apiKey &&
+                       FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+    if (!configured) return;
+    try {
+      // Avoid double-init if Firebase was already initialised
+      const app = firebase.apps.length
+        ? firebase.app()
+        : firebase.initializeApp(FIREBASE_CONFIG);
+      this._docRef = firebase.firestore(app).collection('rummy').doc('data');
+      this._ready  = true;
+    } catch (err) {
+      console.error('[CloudSync] init failed:', err);
+    }
+  },
+
+  /** Pull cloud data and overwrite localStorage. Returns true if new data was found. */
+  async pull() {
+    if (!this._ready) return false;
+    try {
+      const snap = await this._docRef.get();
+      if (snap.exists) {
+        const data = snap.data();
+        if (data && Array.isArray(data.sessions)) {
+          localStorage.setItem(STORE_KEY, JSON.stringify(data));
+          Store._cache = null; // invalidate cache
+          return true;
+        }
+      }
+    } catch (err) {
+      console.error('[CloudSync] pull failed:', err);
+    }
+    return false;
+  },
+
+  /** Push current localStorage data to Firestore (fire-and-forget). */
+  push() {
+    if (!this._ready || this._pushing) return;
+    this._pushing = true;
+    Store._load();
+    this._docRef.set(Store._cache)
+      .catch(err => console.error('[CloudSync] push failed:', err))
+      .finally(() => { this._pushing = false; });
+  }
+};
+
+/* ============================================================
    UTILITIES
    ============================================================ */
 
@@ -43,6 +120,7 @@ const Store = {
 
   _persist() {
     localStorage.setItem(STORE_KEY, JSON.stringify(this._cache));
+    CloudSync.push();
   },
 
   getSessions() {
@@ -146,6 +224,24 @@ const Store = {
     this._load();
     this._cache.sessions = this._cache.sessions.filter(s => s.status === 'active');
     this._persist();
+  },
+
+  exportData() {
+    this._load();
+    return JSON.stringify(this._cache, null, 2);
+  },
+
+  importData(jsonString) {
+    const incoming = JSON.parse(jsonString);
+    if (!incoming || !Array.isArray(incoming.sessions)) throw new Error('Invalid file');
+    this._load();
+    // Merge: add sessions that don't already exist (by id)
+    const existingIds = new Set(this._cache.sessions.map(s => s.id));
+    incoming.sessions.forEach(s => {
+      if (!existingIds.has(s.id)) this._cache.sessions.push(s);
+    });
+    this._persist();
+    return incoming.sessions.length;
   },
 
   updateScore(sessionId, roundId, playerId, newScore) {
@@ -262,6 +358,35 @@ function hideModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
 }
 
+function exportData() {
+  const json = Store.exportData();
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `rummy-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data exported!', 'success');
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const count = Store.importData(e.target.result);
+      showToast(`Imported ${count} session(s)!`, 'success');
+      renderHome();
+    } catch {
+      showToast('Invalid backup file', 'error');
+    }
+    input.value = ''; // reset so same file can be re-imported if needed
+  };
+  reader.readAsText(file);
+}
+
 function showToast(msg, type = 'info') {
   let toast = document.getElementById('toast');
   if (!toast) {
@@ -340,6 +465,14 @@ function renderHome() {
       </button>
       ${historyHtml}
       ${emptyHtml}
+      <div class="data-transfer">
+        <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export Data</button>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer">
+          ⬆ Import Data
+          <input type="file" accept=".json" style="display:none"
+                 onchange="importData(this)">
+        </label>
+      </div>
     </div>
   `);
 }
@@ -993,5 +1126,12 @@ document.addEventListener('DOMContentLoaded', () => {
   Router.on('/game',    params   => renderGame(params));
   Router.on('/history', params   => renderHistory(params));
 
-  Router.init();
+  /* Init Firebase then pull cloud data before rendering */
+  CloudSync.init();
+  CloudSync.pull()
+    .then(synced => {
+      if (synced) showToast('☁ Data synced', 'success');
+    })
+    .catch(() => {})
+    .finally(() => Router.init());
 });
