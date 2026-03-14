@@ -653,6 +653,71 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   margin-bottom: 10px;
 }
 
+/* ---- Money settlement modal ---- */
+.money-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.money-list { display: flex; flex-direction: column; gap: 10px; }
+.money-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.money-row-out {
+  opacity: .6;
+  background: var(--danger-light);
+  border-color: #fca5a5;
+}
+.money-player-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.money-player-name { font-weight: 600; font-size: 15px; }
+.money-score { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+.money-input { width: 90px; flex-shrink: 0; text-align: right; }
+
+/* ---- Settlement card (game summary) ---- */
+.settlement-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid #fde047;
+}
+.settlement-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #92400e;
+  margin-bottom: 10px;
+}
+.settlement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.settlement-row:last-child { border-bottom: none; }
+.settlement-name { font-weight: 600; }
+.settlement-amount {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--success);
+}
+
 /* ---- Drop score config grid (setup) ---- */
 .drop-scores-grid {
   display: grid;

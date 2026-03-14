@@ -253,11 +253,12 @@ const Store = {
     this.saveSession(session);
   },
 
-  completeSession(sessionId) {
+  completeSession(sessionId, money) {
     const session = this.getSession(sessionId);
     if (!session) return;
     session.status = 'completed';
     session.completedDate = new Date().toISOString();
+    if (money && Object.keys(money).length > 0) session.money = money;
     this.saveSession(session);
   }
 };
@@ -519,20 +520,6 @@ function renderSetup() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Winner has</label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input type="radio" name="win-condition" value="lowest" checked>
-              <span>Lowest score</span>
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="win-condition" value="highest">
-              <span>Highest score</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="form-group">
           <label class="form-label">Drop Scores</label>
           <div class="drop-scores-grid">
             <div class="drop-score-item">
@@ -605,7 +592,7 @@ function handleSetupSubmit(e) {
   }
 
   const targetScore    = parseInt(document.getElementById('target-score').value)    || 201;
-  const winCondition   = document.querySelector('input[name="win-condition"]:checked').value;
+  const winCondition   = 'lowest';
   const dropScore      = parseInt(document.getElementById('drop-score').value)      || 20;
   const midDropScore   = parseInt(document.getElementById('mid-drop-score').value)  || 40;
   const fullCountScore = parseInt(document.getElementById('full-count-score').value)|| 80;
@@ -644,16 +631,28 @@ function renderGame(params) {
   const knockedOut = session.knockedOut || [];
   const activePlayers = session.players.filter(p => !knockedOut.includes(p.id));
 
-  /* Completed banner */
+  /* Completed banner + money settlement */
   let completedHtml = '';
   if (!isActive) {
     const winner = getWinner(session);
+    const money  = session.money || {};
+    const moneyEntries = Object.keys(money);
+    const settlementHtml = moneyEntries.length > 0 ? `
+      <div class="settlement-card">
+        <div class="settlement-title">💰 Settlement</div>
+        ${session.players.filter(p => money[p.id] !== undefined).map(p => `
+          <div class="settlement-row">
+            <span class="settlement-name">${p.name}</span>
+            <span class="settlement-amount">₹${money[p.id]}</span>
+          </div>`).join('')}
+      </div>` : '';
     completedHtml = `
       <div class="card card-completed">
         <div class="completed-title">Game Over</div>
         <div class="winner-name">🏆 ${winner ? winner.name : '—'}</div>
         <div class="completed-date">${formatDate(session.date)}</div>
-      </div>`;
+      </div>
+      ${settlementHtml}`;
   }
 
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
@@ -947,15 +946,33 @@ function submitRound(e, sessionId) {
 }
 
 function confirmEndGame(sessionId) {
+  const session    = Store.getSession(sessionId);
+  if (!session) return;
+  const knockedOut = session.knockedOut || [];
+  const totals     = getPlayerTotals(session);
+
+  const playerRows = session.players.map(p => {
+    const isOut = knockedOut.includes(p.id);
+    return `
+      <div class="money-row ${isOut ? 'money-row-out' : ''}">
+        <div class="money-player-info">
+          <span class="money-player-name">${p.name}</span>
+          ${isOut ? `<span class="badge badge-out" style="font-size:11px">OUT</span>` : ''}
+          <span class="money-score">Score: ${totals[p.id]}</span>
+        </div>
+        <input type="number" class="input money-input" data-player="${p.id}"
+               placeholder="0" min="0">
+      </div>`;
+  }).join('');
+
   showModal(`
     <div class="modal-header">
-      <h2>End Game?</h2>
+      <h2>Game Settlement 💰</h2>
       <button class="btn-icon" onclick="hideModal()">✕</button>
     </div>
     <div class="modal-body">
-      <p style="color:var(--text-muted);font-size:15px">
-        This will mark the game as completed. You can still view the scores afterwards.
-      </p>
+      <p class="money-hint">Enter money amount each player owes.</p>
+      <div class="money-list">${playerRows}</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
@@ -1022,7 +1039,12 @@ function confirmRejoin(sessionId, playerId, currentTotal) {
 }
 
 function endGame(sessionId) {
-  Store.completeSession(sessionId);
+  const money = {};
+  document.querySelectorAll('.money-input').forEach(input => {
+    const val = parseFloat(input.value);
+    if (!isNaN(val) && val !== 0) money[input.dataset.player] = val;
+  });
+  Store.completeSession(sessionId, money);
   hideModal();
   renderGame([sessionId]);
   showToast('Game completed!', 'success');
@@ -1112,6 +1134,8 @@ function renderHistory(params) {
       ${sessions.map(s => {
         const winner = getWinner(s);
         const totals = getPlayerTotals(s);
+        const money  = s.money || {};
+        const hasSettlement = Object.keys(money).length > 0;
         return `
           <div class="card card-history"
                onclick="Router.navigate('/history/${s.id}')">
@@ -1121,13 +1145,12 @@ function renderHistory(params) {
             </div>
             <div class="card-meta">
               ${s.rounds.length} rounds &middot; Target: ${s.rules.targetScore}
-              &middot; ${s.rules.winCondition === 'lowest' ? 'Low score wins' : 'High score wins'}
             </div>
             <div class="player-scores">
               ${s.players.map(p => `
                 <span class="player-score-chip
                       ${winner && winner.id === p.id ? 'chip-winner' : ''}">
-                  ${p.name}: ${totals[p.id]}
+                  ${p.name}: ${totals[p.id]}${money[p.id] !== undefined ? ` · ₹${money[p.id]}` : ''}
                 </span>`).join('')}
             </div>
           </div>`;
