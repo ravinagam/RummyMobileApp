@@ -310,15 +310,30 @@ function getRankedPlayers(session) {
  */
 function getEffectiveMoney(session) {
   if (session.money && Object.keys(session.money).length > 0) return session.money;
-  const gameAmt = session.rules && session.rules.gameAmount;
-  if (!gameAmt || session.rounds.length === 0) return {};
+  if (session.rounds.length === 0) return {};
+  return calcSettlement(session);
+}
+
+/**
+ * Calculate settlement amounts from scores + gameAmount base.
+ * Each loser pays: -(their total score) - gameAmount
+ * Winner receives: sum of all losers' payments (positive)
+ */
+function calcSettlement(session) {
+  const totals  = getPlayerTotals(session);
   const ranked  = getRankedPlayers(session);
   const winner  = ranked[0];
-  const numOthers = session.players.length - 1;
-  const money = {};
+  const gameAmt = (session.rules && session.rules.gameAmount) || 0;
+  const money   = {};
+  let winnerReceives = 0;
   session.players.forEach(p => {
-    money[p.id] = p.id === winner.id ? numOthers * gameAmt : -gameAmt;
+    if (p.id !== winner.id) {
+      const owes = totals[p.id] + gameAmt;
+      money[p.id] = -owes;           // negative = they pay
+      winnerReceives += owes;
+    }
   });
+  money[winner.id] = winnerReceives; // positive = winner receives
   return money;
 }
 
@@ -1069,18 +1084,15 @@ function confirmEndGame(sessionId) {
   const knockedOut = session.knockedOut || [];
   const totals     = getPlayerTotals(session);
 
-  // Auto-calculate default amounts: winner receives, others pay
-  const gameAmt    = session.rules.gameAmount || 0;
+  // Auto-calculate amounts: each loser pays their score + gameAmount base
   const ranked     = getRankedPlayers(session);
   const winner     = ranked[0];
-  const numOthers  = session.players.length - 1;
+  const defaults   = calcSettlement(session);
 
   const playerRows = session.players.map(p => {
     const isOut      = knockedOut.includes(p.id);
     const isWinner   = p.id === winner.id;
-    const defaultAmt = gameAmt
-      ? (isWinner ? numOthers * gameAmt : -gameAmt)
-      : '';
+    const defaultAmt = defaults[p.id] !== undefined ? defaults[p.id] : '';
     return `
       <div class="money-row ${isOut ? 'money-row-out' : ''}">
         <div class="money-player-info">
