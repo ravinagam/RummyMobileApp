@@ -436,6 +436,13 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
 }
 .rank-out .rank-pos { background: #fca5a5; color: var(--danger); }
 .rank-out .rank-score { color: var(--danger); }
+.rank-danger {
+  background: #fee2e2 !important;
+  border-left: 3px solid var(--danger);
+}
+.rank-danger .rank-pos { background: var(--danger); color: #fff; }
+.rank-danger .rank-name { color: var(--danger); font-weight: 700; }
+.rank-danger .rank-score { color: var(--danger); }
 .rank-dealer {
   background: #bbf7d0 !important;
   border-left: 3px solid #16a34a;

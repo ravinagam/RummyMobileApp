@@ -758,8 +758,9 @@ function renderGame(params) {
         const isOut      = knockedOut.includes(p.id);
         const hasRejoined = rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
+        const isDanger   = !isOut && p.total > 180;
         return `
-          <div class="rank-item ${isOut ? 'rank-out' : ''} ${isDealer ? 'rank-dealer' : ''}">
+          <div class="rank-item ${isOut ? 'rank-out' : ''} ${isDealer ? 'rank-dealer' : ''} ${isDanger ? 'rank-danger' : ''}">
             <span class="rank-pos">${i + 1}</span>
             <span class="rank-name">${p.name}</span>
             ${isDealer    ? `<span class="badge badge-dealer">🃏</span>` : ''}
