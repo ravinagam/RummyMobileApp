@@ -775,7 +775,7 @@ function renderSetup() {
 function addPlayerRow() {
   const list  = document.getElementById('player-list');
   const count = list.querySelectorAll('.player-row').length;
-  if (count >= 8) { showToast('Maximum 8 players', 'warning'); return; }
+  if (count >= 7) { showToast('Maximum 7 players', 'warning'); return; }
 
   const i   = count + 1;
   const row = document.createElement('div');
@@ -793,7 +793,7 @@ function addPlayerRow() {
   list.appendChild(row);
   row.querySelector('input').focus();
 
-  if (count + 1 >= 8) {
+  if (count + 1 >= 7) {
     document.getElementById('btn-add-player').disabled = true;
   }
 }
