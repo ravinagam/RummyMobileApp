@@ -515,7 +515,7 @@ function renderSetup() {
         <div class="form-group">
           <label class="form-label">Target Score (game ends when a player reaches this)</label>
           <input type="number" class="input" id="target-score"
-                 value="100" min="1" max="9999" required>
+                 value="201" min="1" max="9999" required>
         </div>
 
         <div class="form-group">
@@ -529,6 +529,24 @@ function renderSetup() {
               <input type="radio" name="win-condition" value="highest">
               <span>Highest score</span>
             </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Drop Scores</label>
+          <div class="drop-scores-grid">
+            <div class="drop-score-item">
+              <label class="drop-score-label">D — Drop</label>
+              <input type="number" class="input" id="drop-score" value="20" min="0">
+            </div>
+            <div class="drop-score-item">
+              <label class="drop-score-label">M — Mid Drop</label>
+              <input type="number" class="input" id="mid-drop-score" value="40" min="0">
+            </div>
+            <div class="drop-score-item">
+              <label class="drop-score-label">F — Full Count</label>
+              <input type="number" class="input" id="full-count-score" value="80" min="0">
+            </div>
           </div>
         </div>
       </div>
@@ -586,14 +604,17 @@ function handleSetupSubmit(e) {
     showToast('Player names must be unique', 'error'); return;
   }
 
-  const targetScore  = parseInt(document.getElementById('target-score').value) || 100;
-  const winCondition = document.querySelector('input[name="win-condition"]:checked').value;
+  const targetScore    = parseInt(document.getElementById('target-score').value)    || 201;
+  const winCondition   = document.querySelector('input[name="win-condition"]:checked').value;
+  const dropScore      = parseInt(document.getElementById('drop-score').value)      || 20;
+  const midDropScore   = parseInt(document.getElementById('mid-drop-score').value)  || 40;
+  const fullCountScore = parseInt(document.getElementById('full-count-score').value)|| 80;
 
   // Complete any existing active session before starting a new one
   const existing = Store.getActiveSession();
   if (existing) Store.completeSession(existing.id);
 
-  const session = Store.createSession(names, { targetScore, winCondition });
+  const session = Store.createSession(names, { targetScore, winCondition, dropScore, midDropScore, fullCountScore });
   Router.navigate(`/game/${session.id}`);
 }
 
@@ -774,6 +795,14 @@ function startEditScore(cell) {
   });
 }
 
+/* Fill a score input with a preset drop value and re-run live validation */
+function fillDropScore(btn, value) {
+  const input = btn.closest('.score-input-row').querySelector('.round-score-input');
+  if (!input) return;
+  input.value = value;
+  liveValidateRoundScore(input);
+}
+
 /* Add Round modal */
 function showAddRoundModal(sessionId) {
   const session = Store.getSession(sessionId);
@@ -795,14 +824,27 @@ function showAddRoundModal(sessionId) {
     }
     const autofocus = firstActive ? 'autofocus' : '';
     firstActive = false;
+    const d = session.rules.dropScore      ?? 20;
+    const m = session.rules.midDropScore   ?? 40;
+    const f = session.rules.fullCountScore ?? 80;
     return `
       <div class="form-group">
         <label class="form-label">${p.name}</label>
-        <input type="number" class="input round-score-input"
-               data-player="${p.id}"
-               placeholder="0"
-               oninput="liveValidateRoundScore(this)"
-               ${autofocus}>
+        <div class="score-input-row">
+          <input type="number" class="input round-score-input"
+                 data-player="${p.id}"
+                 placeholder="0"
+                 oninput="liveValidateRoundScore(this)"
+                 ${autofocus}>
+          <div class="score-quick-btns">
+            <button type="button" class="btn-quick" title="Drop (${d})"
+                    onclick="fillDropScore(this,${d})">D</button>
+            <button type="button" class="btn-quick btn-quick-m" title="Mid Drop (${m})"
+                    onclick="fillDropScore(this,${m})">M</button>
+            <button type="button" class="btn-quick btn-quick-f" title="Full Count (${f})"
+                    onclick="fillDropScore(this,${f})">F</button>
+          </div>
+        </div>
       </div>`;
   }).join('');
 

@@ -653,6 +653,60 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   margin-bottom: 10px;
 }
 
+/* ---- Drop score config grid (setup) ---- */
+.drop-scores-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.drop-score-item { display: flex; flex-direction: column; gap: 4px; }
+.drop-score-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+/* ---- D/M/F quick-fill buttons (add round modal) ---- */
+.score-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.score-input-row .input { flex: 1; }
+.score-quick-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.btn-quick {
+  width: 34px;
+  height: 38px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border: 1.5px solid var(--primary);
+  transition: background .12s, transform .1s;
+  flex-shrink: 0;
+}
+.btn-quick:active { transform: scale(.93); }
+.btn-quick:hover  { background: var(--primary); color: #fff; }
+.btn-quick-m {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: var(--warning);
+}
+.btn-quick-m:hover { background: var(--warning); color: #fff; }
+.btn-quick-f {
+  background: var(--danger-light);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-quick-f:hover { background: var(--danger); color: #fff; }
+
 /* ---- Data transfer ---- */
 .data-transfer {
   display: flex;
