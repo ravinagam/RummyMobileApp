@@ -26,6 +26,71 @@ const FIREBASE_CONFIG = {
    localStorage only (same as before).
    ============================================================ */
 
+/* ============================================================
+   AUTH  — Local credential storage (email + password)
+   Credentials stored in localStorage; session flag persists login.
+   ============================================================ */
+const AUTH_KEY     = 'rummy_auth_users';
+const SESSION_KEY  = 'rummy_auth_session';
+
+const Auth = {
+  _email: null,
+
+  // Simple hash to avoid plain-text password storage
+  _hash(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+    }
+    return h.toString(36);
+  },
+
+  _getUsers() {
+    try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || {}; } catch { return {}; }
+  },
+
+  _saveUsers(users) {
+    localStorage.setItem(AUTH_KEY, JSON.stringify(users));
+  },
+
+  // Returns logged-in email if session exists, else null
+  init() {
+    const session = localStorage.getItem(SESSION_KEY);
+    if (session) this._email = session;
+    return Promise.resolve(session ? { email: session, uid: this._hash(session) } : null);
+  },
+
+  signIn(email, password) {
+    const users = this._getUsers();
+    const key   = email.toLowerCase().trim();
+    if (!users[key]) return Promise.reject({ code: 'auth/user-not-found' });
+    if (users[key] !== this._hash(password)) return Promise.reject({ code: 'auth/wrong-password' });
+    this._email = key;
+    localStorage.setItem(SESSION_KEY, key);
+    return Promise.resolve({ email: key, uid: this._hash(key) });
+  },
+
+  register(email, password) {
+    const users = this._getUsers();
+    const key   = email.toLowerCase().trim();
+    if (users[key]) return Promise.reject({ code: 'auth/email-already-in-use' });
+    users[key] = this._hash(password);
+    this._saveUsers(users);
+    this._email = key;
+    localStorage.setItem(SESSION_KEY, key);
+    return Promise.resolve({ email: key, uid: this._hash(key) });
+  },
+
+  signOut() {
+    this._email = null;
+    localStorage.removeItem(SESSION_KEY);
+    return Promise.resolve();
+  },
+
+  get uid()   { return this._email ? this._hash(this._email) : null; },
+  get email() { return this._email; },
+};
+
 const CloudSync = {
   _ready: false,
   _docRef: null,
@@ -37,11 +102,10 @@ const CloudSync = {
                        FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
     if (!configured) { this._pulled = true; return; } // no cloud — allow push freely
     try {
-      // Avoid double-init if Firebase was already initialised
-      const app = firebase.apps.length
-        ? firebase.app()
-        : firebase.initializeApp(FIREBASE_CONFIG);
-      this._docRef = firebase.firestore(app).collection('rummy').doc('data');
+      const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+      // Scope Firestore doc per user so data is isolated between logins
+      const uid = Auth.uid || 'shared';
+      this._docRef = firebase.firestore(app).collection('rummy').doc(uid);
       this._ready  = true;
     } catch (err) {
       console.error('[CloudSync] init failed:', err);
@@ -56,7 +120,7 @@ const CloudSync = {
       if (snap.exists) {
         const data = snap.data();
         if (data && Array.isArray(data.sessions)) {
-          localStorage.setItem(STORE_KEY, JSON.stringify(data));
+          localStorage.setItem(getStoreKey(), JSON.stringify(data));
           Store._cache = null; // invalidate cache
           this._pulled = true;
           return true;
@@ -107,7 +171,10 @@ function formatDateShort(iso) {
    STORE  — all localStorage I/O
    ============================================================ */
 
-const STORE_KEY = 'rummy_v1';
+// Scoped per user — returns a unique key for each login
+function getStoreKey() {
+  return Auth.uid ? `rummy_v1_${Auth.uid}` : 'rummy_v1';
+}
 
 const Store = {
   _cache: null,
@@ -115,14 +182,14 @@ const Store = {
   _load() {
     if (this._cache) return;
     try {
-      this._cache = JSON.parse(localStorage.getItem(STORE_KEY)) || { sessions: [] };
+      this._cache = JSON.parse(localStorage.getItem(getStoreKey())) || { sessions: [] };
     } catch {
       this._cache = { sessions: [] };
     }
   },
 
   _persist() {
-    localStorage.setItem(STORE_KEY, JSON.stringify(this._cache));
+    localStorage.setItem(getStoreKey(), JSON.stringify(this._cache));
     CloudSync.push();
   },
 
@@ -454,6 +521,93 @@ function showToast(msg, type = 'info') {
    PAGE: HOME
    ============================================================ */
 
+/* ============================================================
+   PAGE: SIGN IN / REGISTER
+   ============================================================ */
+function renderSignIn() {
+  document.getElementById('btn-history').hidden = true;
+  setTitle('Rummy 🃏');
+  showBack(false);
+  setContent(`
+    <div style="max-width:360px;margin:40px auto 0">
+      <div class="form-section">
+        <h2 class="section-title" style="text-align:center;margin-bottom:16px">Sign In</h2>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="input" id="auth-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="input" id="auth-password" placeholder="Password" autocomplete="current-password">
+        </div>
+        <div id="auth-error" style="color:var(--danger);font-size:13px;margin-bottom:8px;display:none"></div>
+        <button class="btn btn-primary btn-block" onclick="handleSignIn()" style="margin-bottom:10px">Sign In</button>
+        <button class="btn btn-outline btn-block" onclick="handleRegister()">Create Account</button>
+      </div>
+    </div>
+  `);
+}
+
+function handleSignIn() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl    = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
+  Auth.signIn(email, password)
+    .then(() => {
+      document.getElementById('btn-history').hidden = false;
+      CloudSync.init();
+      CloudSync.pull().finally(() => Router.init());
+    })
+    .catch(e => {
+      errEl.textContent = friendlyAuthError(e.code);
+      errEl.style.display = 'block';
+    });
+}
+
+function handleRegister() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl    = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
+  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+  Auth.register(email, password)
+    .then(() => {
+      document.getElementById('btn-history').hidden = false;
+      CloudSync.init();
+      CloudSync.pull().finally(() => Router.init());
+    })
+    .catch(e => {
+      errEl.textContent = friendlyAuthError(e.code);
+      errEl.style.display = 'block';
+    });
+}
+
+function handleSignOut() {
+  Auth.signOut();
+  CloudSync._ready  = false;
+  CloudSync._pulled = false;
+  CloudSync._docRef = null;
+  Store._cache      = null;
+  localStorage.removeItem(getStoreKey());
+  renderSignIn();
+}
+
+function friendlyAuthError(code) {
+  const map = {
+    'auth/user-not-found':       'No account found with this email.',
+    'auth/wrong-password':       'Incorrect password.',
+    'auth/invalid-email':        'Invalid email address.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/weak-password':        'Password must be at least 6 characters.',
+    'auth/invalid-credential':   'Incorrect email or password.',
+    'auth/too-many-requests':    'Too many attempts. Try again later.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
 function renderHome() {
   setTitle('Rummy 🃏');
   showBack(false);
@@ -523,6 +677,11 @@ function renderHome() {
                  onchange="importData(this)">
         </label>
       </div>
+      ${Auth.email ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:13px;color:var(--text-muted)">
+        <span>Signed in as <strong>${Auth.email}</strong></span>
+        <button class="btn btn-sm btn-outline btn-danger" onclick="handleSignOut()">Sign Out</button>
+      </div>` : ''}
     </div>
   `);
 }
@@ -1410,12 +1569,17 @@ document.addEventListener('DOMContentLoaded', () => {
   Router.on('/game',    params   => renderGame(params));
   Router.on('/history', params   => renderHistory(params));
 
-  /* Init Firebase then pull cloud data before rendering */
-  CloudSync.init();
-  CloudSync.pull()
-    .then(synced => {
-      if (synced) showToast('☁ Data synced', 'success');
-    })
-    .catch(() => {})
-    .finally(() => Router.init());
+  /* Init Auth → if signed in, init CloudSync and pull data; else show sign-in page */
+  Auth.init().then(user => {
+    if (!user) {
+      renderSignIn();
+      return;
+    }
+    document.getElementById('btn-history').hidden = false;
+    CloudSync.init();
+    CloudSync.pull()
+      .then(synced => { if (synced) showToast('☁ Data synced', 'success'); })
+      .catch(() => {})
+      .finally(() => Router.init());
+  });
 });
