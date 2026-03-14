@@ -24,11 +24,16 @@
   --radius:       12px;
   --radius-sm:    8px;
   --header-h:     56px;
+  --safe-top:     env(safe-area-inset-top, 0px);
+  --safe-bottom:  env(safe-area-inset-bottom, 0px);
 }
 
 /* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { -webkit-tap-highlight-color: transparent; }
+html {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
@@ -36,8 +41,11 @@ body {
   font-size: 15px;
   line-height: 1.5;
   min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
 }
-button { cursor: pointer; font: inherit; border: none; background: none; }
+button { cursor: pointer; font: inherit; border: none; background: none; touch-action: manipulation; }
 input  { font: inherit; }
 a      { color: inherit; text-decoration: none; }
 
@@ -54,12 +62,14 @@ a      { color: inherit; text-decoration: none; }
   position: sticky;
   top: 0;
   z-index: 100;
-  height: var(--header-h);
+  height: calc(var(--header-h) + var(--safe-top));
+  padding-top: var(--safe-top);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding-left: 8px;
+  padding-right: 8px;
   gap: 4px;
   box-shadow: var(--shadow);
 }
@@ -76,7 +86,7 @@ a      { color: inherit; text-decoration: none; }
 #page-content {
   flex: 1;
   padding: 16px;
-  padding-bottom: 80px; /* space for FAB */
+  padding-bottom: calc(80px + var(--safe-bottom));
 }
 
 /* ---- Buttons ---- */
@@ -196,7 +206,7 @@ a      { color: inherit; text-decoration: none; }
 .form-group:last-child { margin-bottom: 0; }
 .modal-body .form-group { margin-bottom: 4px; }
 .modal-body .form-label { margin-bottom: 1px; font-size: 11px; }
-.modal-body .input { padding: 5px 8px; font-size: 13px; }
+.modal-body .input { padding: 5px 8px; font-size: 16px; }
 
 .form-label {
   display: block;
@@ -213,7 +223,7 @@ a      { color: inherit; text-decoration: none; }
   padding: 10px 12px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
   background: var(--surface);
   outline: none;
@@ -556,7 +566,7 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   border-radius: 4px;
   text-align: center;
   padding: 2px 4px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   outline: none;
   background: #fff;
@@ -570,7 +580,7 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
 /* ---- FAB ---- */
 .fab-container {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(24px + var(--safe-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
@@ -617,6 +627,8 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   max-width: 640px;
   max-height: 90vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   animation: slideUp .2s ease;
 }
 @media (min-width: 480px) {
@@ -642,7 +654,7 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
 .modal-footer {
   display: flex;
   gap: 8px;
-  padding: 8px 16px 12px;
+  padding: 8px 16px calc(12px + var(--safe-bottom));
   position: sticky;
   bottom: 0;
   background: var(--surface);
@@ -671,7 +683,7 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
 /* ---- Toast ---- */
 #toast {
   position: fixed;
-  bottom: 80px;
+  bottom: calc(80px + var(--safe-bottom));
   left: 50%;
   transform: translateX(-50%) translateY(10px);
   background: #1e293b;

@@ -1,6 +1,13 @@
 'use strict';
 
 /* ============================================================
+   HAPTIC FEEDBACK  — light vibration on Android Chrome
+   ============================================================ */
+function haptic(pattern) {
+  if (navigator.vibrate) navigator.vibrate(pattern ?? 10);
+}
+
+/* ============================================================
    FIREBASE CONFIG
    Fill in your Firebase project details below.
    Steps:
@@ -505,6 +512,10 @@ function importData(input) {
 }
 
 function showToast(msg, type = 'info') {
+  if (type === 'error')   haptic([30, 20, 30]);
+  else if (type === 'success') haptic(15);
+  else if (type === 'warning') haptic([10, 10, 10]);
+
   let toast = document.getElementById('toast');
   if (!toast) {
     toast = document.createElement('div');
@@ -1713,4 +1724,11 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {})
       .finally(() => Router.init());
   });
+
+  /* Register service worker for offline support / PWA */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.warn('[SW] Registration failed:', err);
+    });
+  }
 });
