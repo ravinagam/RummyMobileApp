@@ -437,10 +437,12 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
 .rank-out .rank-pos { background: #fca5a5; color: var(--danger); }
 .rank-out .rank-score { color: var(--danger); }
 .rank-dealer {
-  background: linear-gradient(90deg, #ecfdf5 0%, var(--surface) 100%);
+  background: #bbf7d0 !important;
+  border-left: 3px solid #16a34a;
 }
-.rank-dealer .rank-pos { background: #86efac; color: #14532d; }
-.rank-dealer .rank-name { color: #16a34a; font-weight: 700; }
+.rank-dealer .rank-pos { background: #16a34a; color: #fff; }
+.rank-dealer .rank-name { color: #14532d; font-weight: 700; }
+.rank-dealer .rank-score { color: #14532d; }
 .total-out {
   color: var(--danger) !important;
   background: var(--danger-light) !important;

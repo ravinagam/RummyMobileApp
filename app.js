@@ -750,14 +750,16 @@ function renderGame(params) {
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
   const rejoined     = Object.keys(session.adjustments || {});
   const currentDealer = getCurrentDealer(session);
+  // Use original player order, attach totals for display
+  const orderedPlayers = session.players.map(p => ({ ...p, total: totals[p.id] ?? 0 }));
   const rankHtml = `
     <div class="rank-list" style="margin-bottom:14px">
-      ${ranked.map((p, i) => {
+      ${orderedPlayers.map((p, i) => {
         const isOut      = knockedOut.includes(p.id);
         const hasRejoined = rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
         return `
-          <div class="rank-item ${i === 0 && !isOut ? 'rank-first' : ''} ${isOut ? 'rank-out' : ''} ${isDealer ? 'rank-dealer' : ''}">
+          <div class="rank-item ${isOut ? 'rank-out' : ''} ${isDealer ? 'rank-dealer' : ''}">
             <span class="rank-pos">${i + 1}</span>
             <span class="rank-name">${p.name}</span>
             ${isDealer    ? `<span class="badge badge-dealer">🃏</span>` : ''}
