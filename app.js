@@ -1192,6 +1192,7 @@ function showAddRoundModal(sessionId) {
   showModal(`
     <div class="modal-header">
       <h2>Round ${session.rounds.length + 1} Scores</h2>
+      <button id="btn-voice-scores" class="btn-mic" onclick="startVoiceScoreEntry('${sessionId}')" title="Tap to start, tap again to stop">🎤</button>
       <button class="btn-icon" onclick="hideModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -1205,6 +1206,133 @@ function showAddRoundModal(sessionId) {
       <button class="btn btn-primary" onclick="submitRound(null, '${sessionId}')">Save Round</button>
     </div>
   `);
+}
+
+/* ============================================================
+   VOICE SCORE ENTRY
+   ============================================================ */
+let _voiceRec = null; // active recognition instance
+
+function startVoiceScoreEntry(sessionId) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('Voice not supported in this browser', 'error'); return; }
+
+  const micBtn = document.getElementById('btn-voice-scores');
+
+  // If already listening — stop and parse what was collected
+  if (_voiceRec) {
+    _voiceRec.stop();
+    return;
+  }
+
+  const session = Store.getSession(sessionId);
+  if (!session) return;
+
+  let accumulated = '';
+
+  _voiceRec = new SR();
+  _voiceRec.lang            = 'en-IN';
+  _voiceRec.continuous      = true;   // keep listening across pauses
+  _voiceRec.interimResults  = false;
+  _voiceRec.maxAlternatives = 1;
+
+  micBtn.classList.add('mic-active');
+  micBtn.textContent = '🔴 Tap to stop';
+
+  _voiceRec.onresult = e => {
+    // Append every new final result
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        accumulated += ' ' + e.results[i][0].transcript;
+      }
+    }
+    // Show live feedback
+    micBtn.title = accumulated.trim();
+  };
+
+  _voiceRec.onerror = e => {
+    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
+  };
+
+  _voiceRec.onend = () => {
+    _voiceRec = null;
+    micBtn.classList.remove('mic-active');
+    micBtn.textContent = '🎤';
+    micBtn.title = 'Speak scores';
+    const transcript = accumulated.trim().toLowerCase();
+    if (transcript) {
+      showToast(`Heard: "${transcript}"`, 'info');
+      parseAndFillScores(transcript, session);
+    } else {
+      showToast('Nothing heard — try again', 'warning');
+    }
+  };
+
+  _voiceRec.start();
+}
+
+function parseAndFillScores(transcript, session) {
+  const knockedOut    = session.knockedOut || [];
+  const activePlayers = session.players.filter(p => !knockedOut.includes(p.id));
+  const d = session.rules.dropScore      ?? 20;
+  const m = session.rules.midDropScore   ?? 40;
+  const f = session.rules.fullCountScore ?? 80;
+
+  // Build name → playerId lookup (full name and first word)
+  const nameLookup = {};
+  activePlayers.forEach(p => {
+    const lower = p.name.toLowerCase();
+    nameLookup[lower] = p.id;
+    const first = lower.split(/\s+/)[0];
+    if (!nameLookup[first]) nameLookup[first] = p.id;
+  });
+
+  // Score keywords
+  const keywords = {
+    'drop': d, 'd': d,
+    'mid drop': m, 'mid': m, 'm': m,
+    'full count': f, 'full': f, 'f': f,
+    'zero': 0, 'nil': 0,
+  };
+
+  const words      = transcript.trim().split(/[\s,]+/);
+  const assignments = {};
+  let i = 0;
+
+  while (i < words.length) {
+    let nameMatched = false;
+    // Try 3-word, 2-word, 1-word name matches
+    for (let len = 3; len >= 1; len--) {
+      if (i + len > words.length) continue;
+      const phrase = words.slice(i, i + len).join(' ');
+      if (nameLookup[phrase]) {
+        const pid = nameLookup[phrase];
+        i += len;
+        // Try 2-word keyword then 1-word keyword then plain number
+        const two = words.slice(i, i + 2).join(' ');
+        if (keywords[two] !== undefined) {
+          assignments[pid] = keywords[two]; i += 2;
+        } else if (i < words.length && keywords[words[i]] !== undefined) {
+          assignments[pid] = keywords[words[i]]; i++;
+        } else if (i < words.length) {
+          const num = parseInt(words[i]);
+          if (!isNaN(num)) { assignments[pid] = num; i++; }
+        }
+        nameMatched = true;
+        break;
+      }
+    }
+    if (!nameMatched) i++;
+  }
+
+  let filled = 0;
+  Object.entries(assignments).forEach(([pid, score]) => {
+    const input = document.querySelector(`.round-score-input[data-player="${pid}"]`);
+    if (input) { input.value = score; liveValidateRoundScore(input); filled++; }
+  });
+
+  if (filled > 0) showToast(`Filled ${filled} player${filled > 1 ? 's' : ''} from voice`, 'success');
+  else showToast('No scores recognised — try again', 'warning');
 }
 
 function liveValidateRoundScore(changedInput) {
