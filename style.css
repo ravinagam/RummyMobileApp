@@ -653,6 +653,56 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   margin-bottom: 10px;
 }
 
+/* ---- Round edit button in table header ---- */
+.btn-round-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  vertical-align: middle;
+  margin-left: 2px;
+  opacity: .6;
+  transition: opacity .12s, background .12s;
+}
+.btn-round-edit:hover { opacity: 1; background: var(--primary-light); color: var(--primary); }
+
+/* ---- Player money summary (history) ---- */
+.player-summary-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--primary);
+}
+.summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-name { font-weight: 600; font-size: 15px; flex-shrink: 0; }
+.summary-amounts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.summary-received { font-size: 13px; color: var(--success); font-weight: 600; }
+.summary-paid     { font-size: 13px; color: var(--danger);  font-weight: 600; }
+.summary-net      { font-size: 14px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
+.net-positive { background: var(--success-light); color: #15803d; }
+.net-negative { background: var(--danger-light);  color: var(--danger); }
+
 /* ---- Money settlement modal ---- */
 .money-hint {
   font-size: 13px;

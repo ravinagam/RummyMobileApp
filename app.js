@@ -253,6 +253,15 @@ const Store = {
     this.saveSession(session);
   },
 
+  updateRound(sessionId, roundId, scores) {
+    const session = this.getSession(sessionId);
+    if (!session) return;
+    const round = session.rounds.find(r => r.id === roundId);
+    if (!round) return;
+    round.scores = { ...scores };
+    this.saveSession(session);
+  },
+
   completeSession(sessionId, money) {
     const session = this.getSession(sessionId);
     if (!session) return;
@@ -520,6 +529,12 @@ function renderSetup() {
         </div>
 
         <div class="form-group">
+          <label class="form-label">Game Amount (₹ per game)</label>
+          <input type="number" class="input" id="game-amount"
+                 value="300" min="0">
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Drop Scores</label>
           <div class="drop-scores-grid">
             <div class="drop-score-item">
@@ -593,6 +608,7 @@ function handleSetupSubmit(e) {
 
   const targetScore    = parseInt(document.getElementById('target-score').value)    || 201;
   const winCondition   = 'lowest';
+  const gameAmount     = parseInt(document.getElementById('game-amount').value)     || 0;
   const dropScore      = parseInt(document.getElementById('drop-score').value)      || 20;
   const midDropScore   = parseInt(document.getElementById('mid-drop-score').value)  || 40;
   const fullCountScore = parseInt(document.getElementById('full-count-score').value)|| 80;
@@ -601,7 +617,7 @@ function handleSetupSubmit(e) {
   const existing = Store.getActiveSession();
   if (existing) Store.completeSession(existing.id);
 
-  const session = Store.createSession(names, { targetScore, winCondition, dropScore, midDropScore, fullCountScore });
+  const session = Store.createSession(names, { targetScore, winCondition, gameAmount, dropScore, midDropScore, fullCountScore });
   Router.navigate(`/game/${session.id}`);
 }
 
@@ -714,7 +730,9 @@ function buildScoreTable(session, isActive) {
   const rejoined   = Object.keys(session.adjustments || {});
 
   const headerCells = session.rounds
-    .map(r => `<th>R${r.number}</th>`)
+    .map(r => `<th>R${r.number}${isActive
+      ? `<button class="btn-round-edit" title="Edit round" onclick="showEditRoundModal('${session.id}','${r.id}')">✎</button>`
+      : ''}</th>`)
     .join('');
 
   const bodyRows = session.players.map(player => {
@@ -754,6 +772,83 @@ function buildScoreTable(session, isActive) {
       </thead>
       <tbody>${bodyRows}</tbody>
     </table>`;
+}
+
+/* Edit an existing round's scores via modal */
+function showEditRoundModal(sessionId, roundId) {
+  const session = Store.getSession(sessionId);
+  if (!session) return;
+  const round      = session.rounds.find(r => r.id === roundId);
+  const knockedOut = session.knockedOut || [];
+
+  const inputs = session.players.map(p => {
+    const isOut = knockedOut.includes(p.id);
+    const score = round.scores[p.id] ?? '';
+    if (isOut) {
+      return `
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px">
+            ${p.name} <span class="badge badge-out">OUT</span>
+          </label>
+          <input type="number" class="input" value="—" disabled style="opacity:.4">
+        </div>`;
+    }
+    const d = session.rules.dropScore      ?? 20;
+    const m = session.rules.midDropScore   ?? 40;
+    const f = session.rules.fullCountScore ?? 80;
+    return `
+      <div class="form-group">
+        <label class="form-label">${p.name}</label>
+        <div class="score-input-row">
+          <input type="number" class="input round-score-input"
+                 data-player="${p.id}" value="${score}"
+                 placeholder="0" oninput="liveValidateRoundScore(this)">
+          <div class="score-quick-btns">
+            <button type="button" class="btn-quick" onclick="fillDropScore(this,${d})">D</button>
+            <button type="button" class="btn-quick btn-quick-m" onclick="fillDropScore(this,${m})">M</button>
+            <button type="button" class="btn-quick btn-quick-f" onclick="fillDropScore(this,${f})">F</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  showModal(`
+    <div class="modal-header">
+      <h2>Edit Round ${round.number}</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">${inputs}</div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditedRound('${sessionId}','${roundId}')">Save</button>
+    </div>
+  `);
+}
+
+function saveEditedRound(sessionId, roundId) {
+  const inputs = document.querySelectorAll('.round-score-input');
+  const scores = {};
+  let valid = true;
+
+  inputs.forEach(input => {
+    const val = input.value.trim();
+    if (val === '' || isNaN(parseInt(val))) {
+      input.classList.add('input-error'); valid = false;
+    } else {
+      input.classList.remove('input-error');
+      scores[input.dataset.player] = parseInt(val);
+    }
+  });
+  if (!valid) { showToast('Enter a score for every player', 'error'); return; }
+
+  const zeroCount = Object.values(scores).filter(s => s === 0).length;
+  if (zeroCount === 0) { showToast('Exactly one player must score zero', 'error'); return; }
+  if (zeroCount > 1)   { showToast('Only one player can score zero', 'error');     return; }
+
+  Store.updateRound(sessionId, roundId, scores);
+  hideModal();
+  renderGame([sessionId]);
+  showToast('Round updated!', 'success');
 }
 
 /* Inline score editing */
@@ -1125,8 +1220,41 @@ function renderHistory(params) {
     return;
   }
 
+  /* Build per-player money totals across all completed sessions */
+  const playerTotals = {}; // name → { received, paid }
+  sessions.forEach(s => {
+    const money = s.money || {};
+    s.players.forEach(p => {
+      if (money[p.id] === undefined) return;
+      if (!playerTotals[p.name]) playerTotals[p.name] = { paid: 0, received: 0 };
+      const amt = money[p.id];
+      if (amt > 0) playerTotals[p.name].paid     += amt;
+      else         playerTotals[p.name].received  += Math.abs(amt);
+    });
+  });
+  const summaryPlayers = Object.entries(playerTotals);
+  const summaryHtml = summaryPlayers.length > 0 ? `
+    <div class="player-summary-card">
+      <div class="section-title">Player Summary</div>
+      ${summaryPlayers.map(([name, t]) => {
+        const net = t.received - t.paid;
+        return `
+          <div class="summary-row">
+            <span class="summary-name">${name}</span>
+            <div class="summary-amounts">
+              <span class="summary-received">+₹${t.received}</span>
+              <span class="summary-paid">-₹${t.paid}</span>
+              <span class="summary-net ${net >= 0 ? 'net-positive' : 'net-negative'}">
+                Net: ${net >= 0 ? '+' : ''}₹${net}
+              </span>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>` : '';
+
   setContent(`
     <div>
+      ${summaryHtml}
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
         <button class="btn btn-outline btn-sm btn-danger"
                 onclick="confirmClearHistory()">Clear History</button>
