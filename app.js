@@ -315,25 +315,18 @@ function getEffectiveMoney(session) {
 }
 
 /**
- * Calculate settlement amounts from scores + gameAmount base.
- * Each loser pays: -(their total score) - gameAmount
- * Winner receives: sum of all losers' payments (positive)
+ * Calculate settlement amounts: flat gameAmount.
+ * Players with total score < targetScore receive: +gameAmount (positive)
+ * Players with total score >= targetScore pay: -gameAmount (negative)
  */
 function calcSettlement(session) {
   const totals  = getPlayerTotals(session);
-  const ranked  = getRankedPlayers(session);
-  const winner  = ranked[0];
   const gameAmt = (session.rules && session.rules.gameAmount) || 0;
+  const target  = (session.rules && session.rules.targetScore) || 201;
   const money   = {};
-  let winnerReceives = 0;
   session.players.forEach(p => {
-    if (p.id !== winner.id) {
-      const owes = totals[p.id] + gameAmt;
-      money[p.id] = -owes;           // negative = they pay
-      winnerReceives += owes;
-    }
+    money[p.id] = totals[p.id] < target ? gameAmt : -gameAmt;
   });
-  money[winner.id] = winnerReceives; // positive = winner receives
   return money;
 }
 
@@ -534,17 +527,21 @@ function renderSetup() {
       <div class="form-section">
         <h2 class="section-title">Players</h2>
         <div id="player-list">
-          ${[1, 2, 3, 4].map(i => `
+          ${['Ravi', 'Krishna', 'Sunil', 'Vivek', 'Sashi', 'Ashok D', 'Ashok A'].map((name, idx) => {
+            const i = idx + 1;
+            return `
             <div class="player-row">
               <span class="player-num">${i}</span>
               <input type="text" class="input player-input"
                      placeholder="Player ${i} name"
                      maxlength="20"
+                     value="${name}"
                      ${i <= 2 ? 'required' : ''}>
               ${i > 2
                 ? `<button type="button" class="btn-icon btn-remove" onclick="removePlayerRow(this)" title="Remove">✕</button>`
                 : `<span class="spacer"></span>`}
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
         <button type="button" class="btn btn-outline btn-sm"
                 id="btn-add-player" onclick="addPlayerRow()"
@@ -597,7 +594,7 @@ function renderSetup() {
 function addPlayerRow() {
   const list  = document.getElementById('player-list');
   const count = list.querySelectorAll('.player-row').length;
-  if (count >= 6) { showToast('Maximum 6 players', 'warning'); return; }
+  if (count >= 8) { showToast('Maximum 8 players', 'warning'); return; }
 
   const i   = count + 1;
   const row = document.createElement('div');
@@ -611,7 +608,7 @@ function addPlayerRow() {
   list.appendChild(row);
   row.querySelector('input').focus();
 
-  if (count + 1 >= 6) {
+  if (count + 1 >= 8) {
     document.getElementById('btn-add-player').disabled = true;
   }
 }
