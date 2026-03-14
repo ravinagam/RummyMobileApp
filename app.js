@@ -537,6 +537,8 @@ function renderSetup() {
                      maxlength="20"
                      value="${name}"
                      ${i <= 2 ? 'required' : ''}>
+              <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,-1)" title="Move up">▲</button>
+              <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,1)" title="Move down">▼</button>
               ${i > 2
                 ? `<button type="button" class="btn-icon btn-remove" onclick="removePlayerRow(this)" title="Remove">✕</button>`
                 : `<span class="spacer"></span>`}
@@ -603,6 +605,8 @@ function addPlayerRow() {
     <span class="player-num">${i}</span>
     <input type="text" class="input player-input"
            placeholder="Player ${i} name" maxlength="20">
+    <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,-1)" title="Move up">▲</button>
+    <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,1)" title="Move down">▼</button>
     <button type="button" class="btn-icon btn-remove"
             onclick="removePlayerRow(this)" title="Remove">✕</button>`;
   list.appendChild(row);
@@ -613,13 +617,28 @@ function addPlayerRow() {
   }
 }
 
-function removePlayerRow(btn) {
-  btn.closest('.player-row').remove();
-  // Renumber remaining rows
+function renumberPlayerRows() {
   document.querySelectorAll('#player-list .player-row').forEach((row, i) => {
     row.querySelector('.player-num').textContent = i + 1;
     row.querySelector('input').placeholder = `Player ${i + 1} name`;
   });
+}
+
+function movePlayerRow(btn, dir) {
+  const row  = btn.closest('.player-row');
+  const list = document.getElementById('player-list');
+  const rows = Array.from(list.querySelectorAll('.player-row'));
+  const idx  = rows.indexOf(row);
+  const target = rows[idx + dir];
+  if (!target) return;
+  if (dir === -1) list.insertBefore(row, target);
+  else list.insertBefore(target, row);
+  renumberPlayerRows();
+}
+
+function removePlayerRow(btn) {
+  btn.closest('.player-row').remove();
+  renumberPlayerRows();
   const addBtn = document.getElementById('btn-add-player');
   if (addBtn) addBtn.disabled = false;
 }

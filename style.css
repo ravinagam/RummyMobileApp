@@ -153,6 +153,16 @@ a      { color: inherit; text-decoration: none; }
 }
 .btn-remove:hover { background: var(--danger-light); }
 
+.btn-move {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.btn-move:hover { background: var(--bg); color: var(--text); }
+
 /* ---- Forms ---- */
 .form-section {
   background: var(--surface);
