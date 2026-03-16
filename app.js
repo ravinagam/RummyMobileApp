@@ -694,15 +694,18 @@ function handleSignOut() {
 
 function friendlyAuthError(code) {
   const map = {
-    'auth/user-not-found':       'No account found with this username.',
-    'auth/wrong-password':       'Incorrect password.',
-    'auth/invalid-email':        'Invalid username.',
-    'auth/email-already-in-use': 'An account with this username already exists.',
-    'auth/weak-password':        'Password must be at least 6 characters.',
-    'auth/invalid-credential':   'Incorrect username or password.',
-    'auth/too-many-requests':    'Too many attempts. Try again later.',
+    'auth/user-not-found':        'No account found with this username.',
+    'auth/wrong-password':        'Incorrect password.',
+    'auth/invalid-email':         'Invalid username.',
+    'auth/email-already-in-use':  'An account with this username already exists.',
+    'auth/weak-password':         'Password must be at least 6 characters.',
+    'auth/invalid-credential':    'Incorrect username or password.',
+    'auth/too-many-requests':     'Too many attempts. Try again later.',
+    'auth/operation-not-allowed': 'Email/Password sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.',
+    'auth/network-request-failed':'Network error. Check your internet connection.',
+    'auth/configuration-not-found':'Firebase Auth is not configured. Enable Email/Password in Firebase Console.',
   };
-  return map[code] || 'Something went wrong. Please try again.';
+  return map[code] || `Error (${code}). Please try again.`;
 }
 
 function renderHome() {
