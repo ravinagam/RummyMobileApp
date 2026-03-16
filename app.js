@@ -796,10 +796,10 @@ function renderHome() {
   setContent(`
     <div>
       ${activeHtml}
+      <button class="btn btn-primary btn-block" onclick="Router.navigate('/setup')">+ New Game</button>
       <div style="display:flex;gap:8px;margin-bottom:0">
-        <button class="btn btn-primary" style="flex:1" onclick="Router.navigate('/setup')">+ New Game</button>
-        <button class="btn btn-outline" onclick="Router.navigate('/players')">👥 Players</button>
-        <button class="btn btn-outline" onclick="Router.navigate('/rules')">Rules</button>
+        <button class="btn btn-outline" style="flex:1" onclick="Router.navigate('/players')">👥 Players</button>
+        <button class="btn btn-outline" style="flex:1" onclick="Router.navigate('/rules')">Rules</button>
       </div>
       ${historyHtml}
       ${emptyHtml}
