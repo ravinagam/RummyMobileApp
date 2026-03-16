@@ -793,11 +793,42 @@ function renderHome() {
       <p>No games yet.<br>Tap <strong>New Game</strong> to start!</p>
     </div>` : '';
 
+  setContent(`
+    <div>
+      ${activeHtml}
+      <div style="display:flex;gap:8px;margin-bottom:0">
+        <button class="btn btn-primary" style="flex:1" onclick="Router.navigate('/setup')">+ New Game</button>
+        <button class="btn btn-outline" onclick="Router.navigate('/players')">👥 Players</button>
+        <button class="btn btn-outline" onclick="Router.navigate('/rules')">Rules</button>
+      </div>
+      ${historyHtml}
+      ${emptyHtml}
+      <div class="data-transfer">
+        <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export Data</button>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer">
+          ⬆ Import Data
+          <input type="file" accept=".json" style="display:none"
+                 onchange="importData(this)">
+        </label>
+      </div>
+      ${Auth.email ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:13px;color:var(--text-muted)">
+        <span>Signed in as <strong>${displayUsername(Auth.email)}</strong></span>
+        <button class="btn btn-sm btn-outline btn-danger" onclick="handleSignOut()">Sign Out</button>
+      </div>` : ''}
+    </div>
+  `);
+}
+
+function renderRules() {
+  setTitle('Rules');
+  showBack(true, '/');
+
   const r = Store.getRules();
   const inputStyle = 'style="padding:6px 8px;font-size:14px;width:100%"';
-  const rulesHtml = `
-    <div class="form-section" style="margin-top:20px">
-      <h2 class="section-title">Rules</h2>
+
+  setContent(`
+    <div class="form-section">
       <div style="display:flex;gap:12px;margin-bottom:10px">
         <div style="flex:1">
           <label class="drop-score-label">Target Score</label>
@@ -825,32 +856,7 @@ function renderHome() {
           </div>
         </div>
       </div>
-      <button class="btn btn-outline btn-block" onclick="saveRulesFromHome()">Save Rules</button>
-    </div>`;
-
-  setContent(`
-    <div>
-      ${activeHtml}
-      <div style="display:flex;gap:8px;margin-bottom:0">
-        <button class="btn btn-primary" style="flex:1" onclick="Router.navigate('/setup')">+ New Game</button>
-        <button class="btn btn-outline" onclick="Router.navigate('/players')">👥 Players</button>
-      </div>
-      ${historyHtml}
-      ${emptyHtml}
-      ${rulesHtml}
-      <div class="data-transfer">
-        <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export Data</button>
-        <label class="btn btn-outline btn-sm" style="cursor:pointer">
-          ⬆ Import Data
-          <input type="file" accept=".json" style="display:none"
-                 onchange="importData(this)">
-        </label>
-      </div>
-      ${Auth.email ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:13px;color:var(--text-muted)">
-        <span>Signed in as <strong>${displayUsername(Auth.email)}</strong></span>
-        <button class="btn btn-sm btn-outline btn-danger" onclick="handleSignOut()">Sign Out</button>
-      </div>` : ''}
+      <button class="btn btn-primary btn-block" onclick="saveRulesFromHome()">Save Rules</button>
     </div>
   `);
 }
@@ -864,6 +870,7 @@ function saveRulesFromHome() {
     fullCountScore: parseInt(document.getElementById('rule-full').value)   || 80,
   });
   showToast('Rules saved!', 'success');
+  Router.navigate('/');
 }
 
 /* ============================================================
@@ -1932,6 +1939,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Router.on('/game',    params   => renderGame(params));
   Router.on('/history', params   => renderHistory(params));
   Router.on('/players', ()       => renderPlayers());
+  Router.on('/rules',   ()       => renderRules());
 
   /* Init Auth → if signed in, init CloudSync and pull data; else show sign-in page */
   Auth.init().then(user => {
