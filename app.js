@@ -18,6 +18,8 @@ function haptic(pattern) {
      5. Paste the values below
    ============================================================ */
 
+const RECAPTCHA_SITE_KEY = '6Lf6RIwsAAAAAPJBnXkgQJG-6TpsVjT1f47n1tCT';
+
 const FIREBASE_CONFIG = {
   apiKey:            'AIzaSyDPBG8aKWe_JLeLDz-lbV8Kea7TZPulJf0',
   authDomain:        'rummy-d1e08.firebaseapp.com',
@@ -44,6 +46,13 @@ const Auth = {
 
   _fbAuth() {
     const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+    if (!firebase.apps[0]._appCheckInitialized) {
+      firebase.appCheck(app).activate(
+        new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+        true
+      );
+      firebase.apps[0]._appCheckInitialized = true;
+    }
     return firebase.auth(app);
   },
 
