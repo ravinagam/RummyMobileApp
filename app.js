@@ -810,6 +810,16 @@ function renderHome() {
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/players')">👥 Players</button>
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/rules')">Rules</button>
       </div>
+      <!-- AdSense Banner -->
+      <div style="margin:12px 0;text-align:center;min-height:60px">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-9537276736960487"
+             data-ad-slot="auto"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
       ${historyHtml}
       ${emptyHtml}
       ${Auth.email ? `
@@ -1912,6 +1922,16 @@ function renderHistory(params) {
   setContent(`
     <div>
       ${summaryHtml}
+      <!-- AdSense Banner -->
+      <div style="margin:12px 0;text-align:center;min-height:60px">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-9537276736960487"
+             data-ad-slot="auto"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
         <button class="btn btn-outline btn-sm btn-danger"
                 onclick="confirmClearHistory()">Clear History</button>
