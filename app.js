@@ -202,6 +202,24 @@ const Store = {
     return this._cache.sessions.find(s => s.status === 'active') || null;
   },
 
+  getPlayers() {
+    this._load();
+    return (this._cache.players || []).slice();
+  },
+
+  savePlayer(name) {
+    this._load();
+    this._cache.players = this._cache.players || [];
+    this._cache.players.push({ id: uuid(), name: name.trim() });
+    this._persist();
+  },
+
+  deletePlayer(id) {
+    this._load();
+    this._cache.players = (this._cache.players || []).filter(p => p.id !== id);
+    this._persist();
+  },
+
   saveSession(session) {
     this._load();
     const idx = this._cache.sessions.findIndex(s => s.id === session.id);
@@ -764,9 +782,10 @@ function renderHome() {
   setContent(`
     <div>
       ${activeHtml}
-      <button class="btn btn-primary btn-block" onclick="Router.navigate('/setup')">
-        + New Game
-      </button>
+      <div style="display:flex;gap:8px;margin-bottom:0">
+        <button class="btn btn-primary" style="flex:1" onclick="Router.navigate('/setup')">+ New Game</button>
+        <button class="btn btn-outline" onclick="Router.navigate('/players')">👥 Players</button>
+      </div>
       ${historyHtml}
       ${emptyHtml}
       <div class="data-transfer">
@@ -787,66 +806,137 @@ function renderHome() {
 }
 
 /* ============================================================
+   PAGE: PLAYERS MANAGEMENT
+   ============================================================ */
+
+function renderPlayers() {
+  setTitle('Players');
+  showBack(true, '/');
+  document.getElementById('btn-history').hidden = false;
+
+  const players = Store.getPlayers();
+
+  const listHtml = players.length === 0
+    ? `<div class="empty-state" style="padding:24px 0">
+         <p style="color:var(--text-muted)">No players yet. Add your first player below.</p>
+       </div>`
+    : players.map(p => `
+        <div class="player-row" style="justify-content:space-between">
+          <span style="font-size:15px;font-weight:500">${p.name}</span>
+          <button class="btn-icon btn-remove" onclick="confirmDeletePlayer('${p.id}','${p.name}')" title="Remove">✕</button>
+        </div>`).join('');
+
+  setContent(`
+    <div>
+      <div class="form-section">
+        <h2 class="section-title">Registered Players</h2>
+        <div id="players-list">${listHtml}</div>
+      </div>
+      <div class="form-section">
+        <h2 class="section-title">Add Player</h2>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="input" id="new-player-name"
+                 placeholder="Player name" maxlength="20"
+                 autocorrect="off"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();addRegisteredPlayer();}">
+          <button class="btn btn-primary" onclick="addRegisteredPlayer()" style="white-space:nowrap">+ Add</button>
+        </div>
+        <div id="add-player-error" style="color:var(--danger);font-size:13px;margin-top:6px;display:none"></div>
+      </div>
+    </div>
+  `);
+
+}
+
+function addRegisteredPlayer() {
+  const input  = document.getElementById('new-player-name');
+  const errEl  = document.getElementById('add-player-error');
+  const name   = input.value.trim();
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'Enter a player name.'; errEl.style.display = 'block'; return; }
+
+  const existing = Store.getPlayers();
+  if (existing.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    errEl.textContent = 'A player with this name already exists.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  Store.savePlayer(name);
+  input.value = '';
+  showToast(`${name} added!`, 'success');
+  renderPlayers();
+}
+
+function confirmDeletePlayer(id, name) {
+  showModal(`
+    <div class="modal-header">
+      <h2>Remove Player?</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-muted);font-size:15px">
+        Remove <strong>${name}</strong> from the player list?
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="deleteRegisteredPlayer('${id}')">Remove</button>
+    </div>
+  `);
+}
+
+function deleteRegisteredPlayer(id) {
+  Store.deletePlayer(id);
+  hideModal();
+  showToast('Player removed', 'info');
+  renderPlayers();
+}
+
+/* ============================================================
    PAGE: SETUP
    ============================================================ */
+
+/* _setupSelected tracks players chosen for the new game in selection order */
+let _setupSelected = [];
 
 function renderSetup() {
   setTitle('New Game');
   showBack(true, '/');
 
+  const allPlayers = Store.getPlayers();
+  if (allPlayers.length < 2) {
+    setContent(`
+      <div class="empty-state">
+        <div class="empty-icon">👥</div>
+        <p>You need at least 2 registered players to start a game.<br>
+          <button class="btn btn-primary" onclick="Router.navigate('/players')"
+                  style="margin-top:14px">Go to Players</button>
+        </p>
+      </div>`);
+    return;
+  }
+
+  _setupSelected = [];
+
   setContent(`
-    <form id="setup-form">
+    <div>
       <div class="form-section">
-        <h2 class="section-title">Players</h2>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">Players</span>
-          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">🃏 = First Dealer</span>
-        </div>
-        <div id="player-list">
-          ${['Ravi', 'Krishna', 'Sunil', 'Vivek', 'Sashi', 'Ashok D', 'Ashok A'].map((name, idx) => {
-            const i = idx + 1;
-            return `
-            <div class="player-row">
-              <input type="radio" name="first-dealer" class="dealer-radio" title="First dealer"
-                     ${i === 1 ? 'checked' : ''} style="accent-color:var(--primary);width:16px;height:16px;flex-shrink:0;cursor:pointer">
-              <span class="player-num">${i}</span>
-              <input type="text" class="input player-input"
-                     placeholder="Player ${i} name"
-                     maxlength="20"
-                     value="${name}"
-                     ${i <= 2 ? 'required' : ''}>
-              <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,-1)" title="Move up">▲</button>
-              <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,1)" title="Move down">▼</button>
-              ${i > 2
-                ? `<button type="button" class="btn-icon btn-remove" onclick="removePlayerRow(this)" title="Remove">✕</button>`
-                : `<span class="spacer"></span>`}
-            </div>`;
-          }).join('')}
-        </div>
-        <button type="button" class="btn btn-outline btn-sm"
-                id="btn-add-player" onclick="addPlayerRow()"
-                style="margin-top:4px">
-          + Add Player
-        </button>
+        <h2 class="section-title">Select Players <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">(min 2, max 7)</span></h2>
+        <div id="setup-players"></div>
       </div>
-
-      <button type="submit" class="btn btn-primary btn-block" style="margin-bottom:16px">Start Game →</button>
-
+      <button id="btn-start-game" class="btn btn-primary btn-block" style="margin-bottom:16px" onclick="handleSetupSubmit()">Start Game →</button>
       <div class="form-section">
         <h2 class="section-title">Rules</h2>
-
         <div class="form-group">
           <label class="form-label">Target Score (game ends when a player reaches this)</label>
-          <input type="number" class="input" id="target-score"
-                 value="201" min="1" max="9999" required>
+          <input type="number" class="input" id="target-score" value="201" min="1" max="9999">
         </div>
-
         <div class="form-group">
           <label class="form-label">Game Points</label>
-          <input type="number" class="input" id="game-amount"
-                 value="300" min="0">
+          <input type="number" class="input" id="game-amount" value="300" min="0">
         </div>
-
         <div class="form-group">
           <label class="form-label">Drop Scores</label>
           <div class="drop-scores-grid">
@@ -865,77 +955,83 @@ function renderSetup() {
           </div>
         </div>
       </div>
-
-    </form>
+    </div>
   `);
 
-  document.getElementById('setup-form').addEventListener('submit', handleSetupSubmit);
+  refreshSetupPlayers(allPlayers);
 }
 
-function addPlayerRow() {
-  const list  = document.getElementById('player-list');
-  const count = list.querySelectorAll('.player-row').length;
-  if (count >= 7) { showToast('Maximum 7 players', 'warning'); return; }
+function refreshSetupPlayers(allPlayers) {
+  const container = document.getElementById('setup-players');
+  if (!container) return;
+  allPlayers = allPlayers || Store.getPlayers();
 
-  const i   = count + 1;
-  const row = document.createElement('div');
-  row.className = 'player-row';
-  row.innerHTML = `
-    <input type="radio" name="first-dealer" class="dealer-radio" title="First dealer"
-           style="accent-color:var(--primary);width:16px;height:16px;flex-shrink:0;cursor:pointer">
-    <span class="player-num">${i}</span>
-    <input type="text" class="input player-input"
-           placeholder="Player ${i} name" maxlength="20">
-    <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,-1)" title="Move up">▲</button>
-    <button type="button" class="btn-icon btn-move" onclick="movePlayerRow(this,1)" title="Move down">▼</button>
-    <button type="button" class="btn-icon btn-remove"
-            onclick="removePlayerRow(this)" title="Remove">✕</button>`;
-  list.appendChild(row);
-  row.querySelector('input').focus();
+  const selectedIds = _setupSelected.map(p => p.id);
 
-  if (count + 1 >= 7) {
-    document.getElementById('btn-add-player').disabled = true;
+  /* Selected players section */
+  const selectedHtml = _setupSelected.length === 0 ? '' : `
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">
+        Selected (${_setupSelected.length}) &nbsp;🃏 = First Dealer
+      </div>
+      ${_setupSelected.map((p, i) => `
+        <div class="player-row">
+          <input type="radio" name="first-dealer" class="dealer-radio"
+                 ${i === _setupSelected.length - 1 ? 'checked' : ''}
+                 style="accent-color:var(--primary);width:16px;height:16px;flex-shrink:0;cursor:pointer">
+          <span class="player-num">${i + 1}</span>
+          <span style="flex:1;font-size:15px;font-weight:500">${p.name}</span>
+          <button type="button" class="btn-icon btn-move" onclick="moveSetupPlayer('${p.id}',-1)" title="Move up">▲</button>
+          <button type="button" class="btn-icon btn-move" onclick="moveSetupPlayer('${p.id}',1)" title="Move down">▼</button>
+          <button type="button" class="btn-icon btn-remove" onclick="toggleSetupPlayer('${p.id}')" title="Remove">✕</button>
+        </div>`).join('')}
+    </div>`;
+
+  /* Available (unselected) players */
+  const available = allPlayers.filter(p => !selectedIds.includes(p.id));
+  const availableHtml = available.length === 0 ? '' : `
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">
+        ${_setupSelected.length > 0 ? 'Add More' : 'Tap to Select'}
+      </div>
+      ${available.map(p => `
+        <div class="player-row" onclick="toggleSetupPlayer('${p.id}')"
+             style="cursor:pointer;opacity:${_setupSelected.length >= 7 ? '.4' : '1'}">
+          <span style="flex:1;font-size:15px">${p.name}</span>
+          <span style="color:var(--primary);font-size:18px;padding-right:4px">+</span>
+        </div>`).join('')}
+    </div>`;
+
+  container.innerHTML = selectedHtml + availableHtml;
+}
+
+function toggleSetupPlayer(id) {
+  const idx = _setupSelected.findIndex(p => p.id === id);
+  if (idx >= 0) {
+    _setupSelected.splice(idx, 1);
+  } else {
+    if (_setupSelected.length >= 7) { showToast('Maximum 7 players', 'warning'); return; }
+    const all = Store.getPlayers();
+    const player = all.find(p => p.id === id);
+    if (player) _setupSelected.push(player);
   }
+  refreshSetupPlayers();
 }
 
-function renumberPlayerRows() {
-  document.querySelectorAll('#player-list .player-row').forEach((row, i) => {
-    row.querySelector('.player-num').textContent = i + 1;
-    row.querySelector('input').placeholder = `Player ${i + 1} name`;
-  });
+function moveSetupPlayer(id, dir) {
+  const idx = _setupSelected.findIndex(p => p.id === id);
+  const target = idx + dir;
+  if (target < 0 || target >= _setupSelected.length) return;
+  [_setupSelected[idx], _setupSelected[target]] = [_setupSelected[target], _setupSelected[idx]];
+  refreshSetupPlayers();
 }
 
-function movePlayerRow(btn, dir) {
-  const row  = btn.closest('.player-row');
-  const list = document.getElementById('player-list');
-  const rows = Array.from(list.querySelectorAll('.player-row'));
-  const idx  = rows.indexOf(row);
-  const target = rows[idx + dir];
-  if (!target) return;
-  if (dir === -1) list.insertBefore(row, target);
-  else list.insertBefore(target, row);
-  renumberPlayerRows();
-}
-
-function removePlayerRow(btn) {
-  btn.closest('.player-row').remove();
-  renumberPlayerRows();
-  const addBtn = document.getElementById('btn-add-player');
-  if (addBtn) addBtn.disabled = false;
-}
-
-function handleSetupSubmit(e) {
-  e.preventDefault();
-  const names = Array.from(document.querySelectorAll('.player-input'))
-    .map(i => i.value.trim())
-    .filter(Boolean);
-
-  if (names.length < 2) {
-    showToast('Need at least 2 players', 'error'); return;
+function handleSetupSubmit() {
+  if (_setupSelected.length < 2) {
+    showToast('Select at least 2 players', 'error'); return;
   }
-  if (new Set(names.map(n => n.toLowerCase())).size !== names.length) {
-    showToast('Player names must be unique', 'error'); return;
-  }
+
+  const names = _setupSelected.map(p => p.name);
 
   const targetScore    = parseInt(document.getElementById('target-score').value)    || 201;
   const winCondition   = 'lowest';
@@ -944,10 +1040,12 @@ function handleSetupSubmit(e) {
   const midDropScore   = parseInt(document.getElementById('mid-drop-score').value)  || 40;
   const fullCountScore = parseInt(document.getElementById('full-count-score').value)|| 80;
 
-  const dealerRow = document.querySelector('#player-list .dealer-radio:checked')?.closest('.player-row');
-  const firstDealer = dealerRow ? dealerRow.querySelector('.player-input').value.trim() : names[0];
+  const checkedRadio = document.querySelector('#setup-players .dealer-radio:checked');
+  const dealerIdx    = checkedRadio
+    ? Array.from(document.querySelectorAll('#setup-players .dealer-radio')).indexOf(checkedRadio)
+    : _setupSelected.length - 1;
+  const firstDealer  = _setupSelected[dealerIdx]?.name || names[names.length - 1];
 
-  // Complete any existing active session before starting a new one
   const existing = Store.getActiveSession();
   if (existing) Store.completeSession(existing.id);
 
@@ -1799,6 +1897,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Router.on('/setup',   ()       => renderSetup());
   Router.on('/game',    params   => renderGame(params));
   Router.on('/history', params   => renderHistory(params));
+  Router.on('/players', ()       => renderPlayers());
 
   /* Init Auth → if signed in, init CloudSync and pull data; else show sign-in page */
   Auth.init().then(user => {
