@@ -835,7 +835,7 @@ function renderRules() {
           <input type="number" class="input" id="rule-target" value="${r.targetScore}" min="1" max="9999" ${inputStyle}>
         </div>
         <div style="flex:1">
-          <label class="drop-score-label">Game Points</label>
+          <label class="drop-score-label">Reward Points</label>
           <input type="number" class="input" id="rule-amount" value="${r.gameAmount}" min="0" ${inputStyle}>
         </div>
       </div>
