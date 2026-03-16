@@ -538,10 +538,93 @@ function renderSignIn() {
         </div>
         <div id="auth-error" style="color:var(--danger);font-size:13px;margin-bottom:8px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="handleSignIn()" style="margin-bottom:10px">Sign In</button>
-        <button class="btn btn-outline btn-block" onclick="handleRegister()">Create Account</button>
+        <button class="btn btn-outline btn-block" onclick="showRegisterModal()" style="margin-bottom:10px">Create Account</button>
+        <div style="text-align:center">
+          <button onclick="showForgotPasswordModal()"
+                  style="background:none;border:none;color:var(--primary);font-size:14px;cursor:pointer;padding:4px">
+            Forgot Password?
+          </button>
+        </div>
       </div>
     </div>
   `);
+}
+
+function showRegisterModal() {
+  showModal(`
+    <div class="modal-header">
+      <h2>Create Account</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="input" id="reg-username" placeholder="e.g. ravi" autocorrect="off" autocapitalize="none">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="input" id="reg-password" placeholder="Min 6 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          Recovery Email
+          <span style="font-weight:normal;color:var(--text-muted)"> (optional — for password reset)</span>
+        </label>
+        <input type="email" class="input" id="reg-recovery" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div id="reg-error" style="color:var(--danger);font-size:13px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="handleRegister()">Create Account</button>
+    </div>
+  `);
+}
+
+function showForgotPasswordModal() {
+  showModal(`
+    <div class="modal-header">
+      <h2>Forgot Password</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:14px">
+        Enter your username. A reset link will be sent to your recovery email.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="input" id="forgot-username" placeholder="e.g. ravi" autocorrect="off" autocapitalize="none">
+      </div>
+      <div id="forgot-error" style="color:var(--danger);font-size:13px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="handleForgotPassword()">Send Reset Link</button>
+    </div>
+  `);
+}
+
+async function handleForgotPassword() {
+  const username = document.getElementById('forgot-username').value.trim().toLowerCase();
+  const errEl    = document.getElementById('forgot-error');
+  errEl.style.display = 'none';
+  if (!username) { errEl.textContent = 'Enter your username.'; errEl.style.display = 'block'; return; }
+
+  try {
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+    const doc = await firebase.firestore(app).collection('recovery').doc(username).get();
+    if (!doc.exists || !doc.data().recoveryEmail) {
+      errEl.textContent = 'No recovery email found for this username. Contact the group admin.';
+      errEl.style.display = 'block';
+      return;
+    }
+    await firebase.auth(app).sendPasswordResetEmail(doc.data().recoveryEmail);
+    hideModal();
+    showToast('Reset link sent! Check your email.', 'success');
+  } catch {
+    errEl.textContent = 'Failed to send reset link. Try again.';
+    errEl.style.display = 'block';
+  }
 }
 
 function toFirebaseEmail(username) {
@@ -571,14 +654,22 @@ function handleSignIn() {
 }
 
 function handleRegister() {
-  const username = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const errEl    = document.getElementById('auth-error');
+  const username      = document.getElementById('reg-username').value.trim();
+  const password      = document.getElementById('reg-password').value;
+  const recoveryEmail = document.getElementById('reg-recovery').value.trim();
+  const errEl         = document.getElementById('reg-error');
   errEl.style.display = 'none';
   if (!username || !password) { errEl.textContent = 'Enter username and password.'; errEl.style.display = 'block'; return; }
   if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
   Auth.register(toFirebaseEmail(username), password)
     .then(() => {
+      // Save recovery email to Firestore for password reset
+      if (recoveryEmail) {
+        const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+        firebase.firestore(app).collection('recovery').doc(username.toLowerCase())
+          .set({ recoveryEmail });
+      }
+      hideModal();
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
       CloudSync.pull().finally(() => Router.init());
