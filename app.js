@@ -529,8 +529,8 @@ function renderSignIn() {
       <div class="form-section">
         <h2 class="section-title" style="text-align:center;margin-bottom:16px">Sign In</h2>
         <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" class="input" id="auth-email" placeholder="you@example.com" autocomplete="email">
+          <label class="form-label">Username</label>
+          <input type="text" class="input" id="auth-email" placeholder="e.g. ravi" autocomplete="username" autocorrect="off" autocapitalize="none">
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
@@ -544,13 +544,21 @@ function renderSignIn() {
   `);
 }
 
+function toFirebaseEmail(username) {
+  return username.toLowerCase().replace(/[^a-z0-9._-]/g, '') + '@rummy.app';
+}
+
+function displayUsername(email) {
+  return email ? email.replace('@rummy.app', '') : '';
+}
+
 function handleSignIn() {
-  const email    = document.getElementById('auth-email').value.trim();
+  const username = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const errEl    = document.getElementById('auth-error');
   errEl.style.display = 'none';
-  if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
-  Auth.signIn(email, password)
+  if (!username || !password) { errEl.textContent = 'Enter username and password.'; errEl.style.display = 'block'; return; }
+  Auth.signIn(toFirebaseEmail(username), password)
     .then(() => {
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
@@ -563,13 +571,13 @@ function handleSignIn() {
 }
 
 function handleRegister() {
-  const email    = document.getElementById('auth-email').value.trim();
+  const username = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const errEl    = document.getElementById('auth-error');
   errEl.style.display = 'none';
-  if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
+  if (!username || !password) { errEl.textContent = 'Enter username and password.'; errEl.style.display = 'block'; return; }
   if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
-  Auth.register(email, password)
+  Auth.register(toFirebaseEmail(username), password)
     .then(() => {
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
@@ -595,12 +603,12 @@ function handleSignOut() {
 
 function friendlyAuthError(code) {
   const map = {
-    'auth/user-not-found':       'No account found with this email.',
+    'auth/user-not-found':       'No account found with this username.',
     'auth/wrong-password':       'Incorrect password.',
-    'auth/invalid-email':        'Invalid email address.',
-    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/invalid-email':        'Invalid username.',
+    'auth/email-already-in-use': 'An account with this username already exists.',
     'auth/weak-password':        'Password must be at least 6 characters.',
-    'auth/invalid-credential':   'Incorrect email or password.',
+    'auth/invalid-credential':   'Incorrect username or password.',
     'auth/too-many-requests':    'Too many attempts. Try again later.',
   };
   return map[code] || 'Something went wrong. Please try again.';
@@ -677,7 +685,7 @@ function renderHome() {
       </div>
       ${Auth.email ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:13px;color:var(--text-muted)">
-        <span>Signed in as <strong>${Auth.email}</strong></span>
+        <span>Signed in as <strong>${displayUsername(Auth.email)}</strong></span>
         <button class="btn btn-sm btn-outline btn-danger" onclick="handleSignOut()">Sign Out</button>
       </div>` : ''}
     </div>
