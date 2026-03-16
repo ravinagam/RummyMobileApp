@@ -1,6 +1,6 @@
 {
   "name": "Rummy Score Tracker",
-  "short_name": "Rummy",
+  "short_name": "Rummy Score",
   "description": "Track Rummy card game scores with your group",
   "start_url": "/",
   "display": "standalone",
