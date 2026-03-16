@@ -34,68 +34,53 @@ const FIREBASE_CONFIG = {
    ============================================================ */
 
 /* ============================================================
-   AUTH  — Local credential storage (email + password)
-   Credentials stored in localStorage; session flag persists login.
+   AUTH  — Firebase Authentication (cross-device login)
+   Same email + password works on any device. Session is
+   managed by Firebase automatically.
    ============================================================ */
-const AUTH_KEY     = 'rummy_auth_users';
-const SESSION_KEY  = 'rummy_auth_session';
 
 const Auth = {
-  _email: null,
+  _user: null,
 
-  // Simple hash to avoid plain-text password storage
-  _hash(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) {
-      h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-    }
-    return h.toString(36);
+  _fbAuth() {
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+    return firebase.auth(app);
   },
 
-  _getUsers() {
-    try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || {}; } catch { return {}; }
-  },
-
-  _saveUsers(users) {
-    localStorage.setItem(AUTH_KEY, JSON.stringify(users));
-  },
-
-  // Returns logged-in email if session exists, else null
+  // Resolves with user object if already signed in, else null
   init() {
-    const session = localStorage.getItem(SESSION_KEY);
-    if (session) this._email = session;
-    return Promise.resolve(session ? { email: session, uid: this._hash(session) } : null);
+    return new Promise(resolve => {
+      this._fbAuth().onAuthStateChanged(user => {
+        this._user = user || null;
+        resolve(user ? { email: user.email, uid: user.uid } : null);
+      });
+    });
   },
 
   signIn(email, password) {
-    const users = this._getUsers();
-    const key   = email.toLowerCase().trim();
-    if (!users[key]) return Promise.reject({ code: 'auth/user-not-found' });
-    if (users[key] !== this._hash(password)) return Promise.reject({ code: 'auth/wrong-password' });
-    this._email = key;
-    localStorage.setItem(SESSION_KEY, key);
-    return Promise.resolve({ email: key, uid: this._hash(key) });
+    return this._fbAuth()
+      .signInWithEmailAndPassword(email.trim(), password)
+      .then(cred => {
+        this._user = cred.user;
+        return { email: cred.user.email, uid: cred.user.uid };
+      });
   },
 
   register(email, password) {
-    const users = this._getUsers();
-    const key   = email.toLowerCase().trim();
-    if (users[key]) return Promise.reject({ code: 'auth/email-already-in-use' });
-    users[key] = this._hash(password);
-    this._saveUsers(users);
-    this._email = key;
-    localStorage.setItem(SESSION_KEY, key);
-    return Promise.resolve({ email: key, uid: this._hash(key) });
+    return this._fbAuth()
+      .createUserWithEmailAndPassword(email.trim(), password)
+      .then(cred => {
+        this._user = cred.user;
+        return { email: cred.user.email, uid: cred.user.uid };
+      });
   },
 
   signOut() {
-    this._email = null;
-    localStorage.removeItem(SESSION_KEY);
-    return Promise.resolve();
+    return this._fbAuth().signOut().then(() => { this._user = null; });
   },
 
-  get uid()   { return this._email ? this._hash(this._email) : null; },
-  get email() { return this._email; },
+  get uid()   { return this._user ? this._user.uid : null; },
+  get email() { return this._user ? this._user.email : null; },
 };
 
 const CloudSync = {
@@ -597,13 +582,15 @@ function handleRegister() {
 }
 
 function handleSignOut() {
-  Auth.signOut();
-  CloudSync._ready  = false;
-  CloudSync._pulled = false;
-  CloudSync._docRef = null;
-  Store._cache      = null;
-  localStorage.removeItem(getStoreKey());
-  renderSignIn();
+  const storeKey = getStoreKey();
+  Auth.signOut().then(() => {
+    CloudSync._ready  = false;
+    CloudSync._pulled = false;
+    CloudSync._docRef = null;
+    Store._cache      = null;
+    localStorage.removeItem(storeKey);
+    renderSignIn();
+  });
 }
 
 function friendlyAuthError(code) {
