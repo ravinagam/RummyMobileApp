@@ -803,14 +803,6 @@ function renderHome() {
       </div>
       ${historyHtml}
       ${emptyHtml}
-      <div class="data-transfer">
-        <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export Data</button>
-        <label class="btn btn-outline btn-sm" style="cursor:pointer">
-          ⬆ Import Data
-          <input type="file" accept=".json" style="display:none"
-                 onchange="importData(this)">
-        </label>
-      </div>
       ${Auth.email ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:13px;color:var(--text-muted)">
         <span>Signed in as <strong>${displayUsername(Auth.email)}</strong></span>
@@ -1700,7 +1692,6 @@ function confirmEndGame(sessionId) {
   const session    = Store.getSession(sessionId);
   if (!session) return;
   const knockedOut = session.knockedOut || [];
-  const totals     = getPlayerTotals(session);
 
   // Auto-calculate amounts: each loser pays their score + gameAmount base
   const ranked     = getRankedPlayers(session);
@@ -1717,10 +1708,9 @@ function confirmEndGame(sessionId) {
           <span class="money-player-name">${p.name}</span>
           ${isOut ? `<span class="badge badge-out" style="font-size:11px">OUT</span>` : ''}
           ${isWinner ? `<span class="badge badge-winner" style="font-size:11px">🏆</span>` : ''}
-          <span class="money-score">Score: ${totals[p.id]}</span>
         </div>
         <input type="number" class="input money-input" data-player="${p.id}"
-               value="${defaultAmt}" placeholder="0">
+               value="${defaultAmt}" placeholder="0" style="text-align:right;direction:ltr">
       </div>`;
   }).join('');
 
