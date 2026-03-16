@@ -796,10 +796,10 @@ function renderHome() {
   setContent(`
     <div>
       ${activeHtml}
-      <button class="btn btn-primary btn-block" onclick="Router.navigate('/setup')">+ New Game</button>
+      <button class="btn btn-primary btn-block" style="margin-bottom:6px" onclick="Router.navigate('/setup')">+ New Game</button>
       <div style="display:flex;gap:8px;margin-bottom:0">
-        <button class="btn btn-outline" style="flex:1" onclick="Router.navigate('/players')">👥 Players</button>
-        <button class="btn btn-outline" style="flex:1" onclick="Router.navigate('/rules')">Rules</button>
+        <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/players')">👥 Players</button>
+        <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/rules')">Rules</button>
       </div>
       ${historyHtml}
       ${emptyHtml}
@@ -1450,7 +1450,36 @@ function showAddRoundModal(sessionId) {
 /* ============================================================
    VOICE SCORE ENTRY
    ============================================================ */
-let _voiceRec = null; // active recognition instance
+let _voiceRec = null;        // active recognition instance
+let _voiceStopped = false;   // true when user deliberately tapped stop
+
+// Convert spoken number words to digits (mobile speech recognition returns words)
+function wordsToNumber(word) {
+  const map = {
+    'zero':0,'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,
+    'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,'thirteen':13,
+    'fourteen':14,'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,
+    'nineteen':19,'twenty':20,'thirty':30,'forty':40,'fifty':50,
+    'sixty':60,'seventy':70,'eighty':80,'ninety':90,'hundred':100,
+  };
+  return map[word] !== undefined ? map[word] : NaN;
+}
+
+// Try to parse a score from one or two consecutive words (e.g. "twenty five" → 25)
+function parseSpokenScore(words, idx) {
+  const w1 = words[idx];
+  const w2 = words[idx + 1];
+  const n1 = wordsToNumber(w1);
+  const n2 = w2 !== undefined ? wordsToNumber(w2) : NaN;
+
+  if (!isNaN(n1)) {
+    if (!isNaN(n2) && n2 < n1 && n2 !== 0) return { value: n1 + n2, consumed: 2 };
+    return { value: n1, consumed: 1 };
+  }
+  const d = parseInt(w1);
+  if (!isNaN(d)) return { value: d, consumed: 1 };
+  return null;
+}
 
 function startVoiceScoreEntry(sessionId) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1458,8 +1487,9 @@ function startVoiceScoreEntry(sessionId) {
 
   const micBtn = document.getElementById('btn-voice-scores');
 
-  // If already listening — stop and parse what was collected
+  // If already listening — user tapped to stop
   if (_voiceRec) {
+    _voiceStopped = true;
     _voiceRec.stop();
     return;
   }
@@ -1468,32 +1498,42 @@ function startVoiceScoreEntry(sessionId) {
   if (!session) return;
 
   let accumulated = '';
+  _voiceStopped = false;
 
-  _voiceRec = new SR();
-  _voiceRec.lang            = 'en-IN';
-  _voiceRec.continuous      = true;   // keep listening across pauses
-  _voiceRec.interimResults  = false;
-  _voiceRec.maxAlternatives = 1;
+  function startRec() {
+    const rec = new SR();
+    rec.lang            = 'en-IN';
+    rec.continuous      = false;  // more reliable on mobile
+    rec.interimResults  = false;
+    rec.maxAlternatives = 1;
 
-  micBtn.classList.add('mic-active');
-  micBtn.textContent = '🔴 Tap to stop';
-
-  _voiceRec.onresult = e => {
-    // Append every new final result
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) {
-        accumulated += ' ' + e.results[i][0].transcript;
+    rec.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) accumulated += ' ' + e.results[i][0].transcript;
       }
-    }
-    // Show live feedback
-    micBtn.title = accumulated.trim();
-  };
+      micBtn.title = accumulated.trim();
+    };
 
-  _voiceRec.onerror = e => {
-    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
-  };
+    rec.onerror = e => {
+      if (e.error === 'no-speech') return; // ignore silence, restart below
+      showToast('Voice error: ' + e.error, 'error');
+      _voiceStopped = true;
+    };
 
-  _voiceRec.onend = () => {
+    rec.onend = () => {
+      if (!_voiceStopped) {
+        // Auto-restart to keep listening until user taps stop
+        try { startRec(); } catch { finishVoice(); }
+        return;
+      }
+      finishVoice();
+    };
+
+    _voiceRec = rec;
+    rec.start();
+  }
+
+  function finishVoice() {
     _voiceRec = null;
     micBtn.classList.remove('mic-active');
     micBtn.textContent = '🎤';
@@ -1505,9 +1545,11 @@ function startVoiceScoreEntry(sessionId) {
     } else {
       showToast('Nothing heard — try again', 'warning');
     }
-  };
+  }
 
-  _voiceRec.start();
+  micBtn.classList.add('mic-active');
+  micBtn.textContent = '🔴 Tap to stop';
+  startRec();
 }
 
 function parseAndFillScores(transcript, session) {
@@ -1547,15 +1589,15 @@ function parseAndFillScores(transcript, session) {
       if (nameLookup[phrase]) {
         const pid = nameLookup[phrase];
         i += len;
-        // Try 2-word keyword then 1-word keyword then plain number
+        // Try 2-word keyword then 1-word keyword then spoken/digit number
         const two = words.slice(i, i + 2).join(' ');
         if (keywords[two] !== undefined) {
           assignments[pid] = keywords[two]; i += 2;
         } else if (i < words.length && keywords[words[i]] !== undefined) {
           assignments[pid] = keywords[words[i]]; i++;
         } else if (i < words.length) {
-          const num = parseInt(words[i]);
-          if (!isNaN(num)) { assignments[pid] = num; i++; }
+          const parsed = parseSpokenScore(words, i);
+          if (parsed) { assignments[pid] = parsed.value; i += parsed.consumed; }
         }
         nameMatched = true;
         break;
