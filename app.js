@@ -794,31 +794,34 @@ function renderHome() {
     </div>` : '';
 
   const r = Store.getRules();
+  const inputStyle = 'style="padding:6px 8px;font-size:14px;width:100%"';
   const rulesHtml = `
     <div class="form-section" style="margin-top:20px">
       <h2 class="section-title">Rules</h2>
-      <div class="form-group">
-        <label class="form-label">Target Score</label>
-        <input type="number" class="input" id="rule-target" value="${r.targetScore}" min="1" max="9999">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Game Points</label>
-        <input type="number" class="input" id="rule-amount" value="${r.gameAmount}" min="0">
+      <div style="display:flex;gap:12px;margin-bottom:10px">
+        <div style="flex:1">
+          <label class="drop-score-label">Target Score</label>
+          <input type="number" class="input" id="rule-target" value="${r.targetScore}" min="1" max="9999" ${inputStyle}>
+        </div>
+        <div style="flex:1">
+          <label class="drop-score-label">Game Points</label>
+          <input type="number" class="input" id="rule-amount" value="${r.gameAmount}" min="0" ${inputStyle}>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Drop Scores</label>
         <div class="drop-scores-grid">
           <div class="drop-score-item">
             <label class="drop-score-label">D — Drop</label>
-            <input type="number" class="input" id="rule-drop" value="${r.dropScore}" min="0">
+            <input type="number" class="input" id="rule-drop" value="${r.dropScore}" min="0" ${inputStyle}>
           </div>
           <div class="drop-score-item">
             <label class="drop-score-label">M — Mid Drop</label>
-            <input type="number" class="input" id="rule-mid" value="${r.midDropScore}" min="0">
+            <input type="number" class="input" id="rule-mid" value="${r.midDropScore}" min="0" ${inputStyle}>
           </div>
           <div class="drop-score-item">
             <label class="drop-score-label">F — Full Count</label>
-            <input type="number" class="input" id="rule-full" value="${r.fullCountScore}" min="0">
+            <input type="number" class="input" id="rule-full" value="${r.fullCountScore}" min="0" ${inputStyle}>
           </div>
         </div>
       </div>
