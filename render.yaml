@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: rummy-score-tracker
+    name: RummyMobileApp
     env: static
     buildCommand: ""
     staticPublishPath: .
