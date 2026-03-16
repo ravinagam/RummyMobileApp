@@ -537,7 +537,7 @@ function showToast(msg, type = 'info') {
    ============================================================ */
 function renderSignIn() {
   document.getElementById('btn-history').hidden = true;
-  setTitle('Rummy 🃏');
+  setTitle('Rummy Score Board');
   showBack(false);
   setContent(`
     <div style="max-width:360px;margin:40px auto 0">
@@ -620,7 +620,7 @@ function friendlyAuthError(code) {
 }
 
 function renderHome() {
-  setTitle('Rummy 🃏');
+  setTitle('Rummy Score Board');
   showBack(false);
 
   const sessions  = Store.getSessions();
