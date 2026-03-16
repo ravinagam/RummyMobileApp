@@ -748,7 +748,7 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: 5px 0;
   border-bottom: 1px solid var(--border);
   gap: 8px;
 }
@@ -764,8 +764,8 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   background: none;
   padding: 0;
 }
-.summary-name { font-weight: 600; font-size: 15px; flex-shrink: 0; }
-.summary-net  { font-size: 15px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
+.summary-name { font-weight: 600; font-size: 13px; flex-shrink: 0; }
+.summary-net  { font-size: 13px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
 .net-positive { background: var(--success-light); color: #15803d; }
 .net-negative { background: var(--danger-light);  color: var(--danger); }
 
@@ -910,16 +910,17 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
 /* ---- Player score chips (history) ---- */
 .player-scores {
   display: flex;
-  gap: 5px;
-  margin-top: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
 }
 .player-score-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: 3px;
+  padding: 2px 7px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
   background: var(--bg);
   color: var(--text-muted);
   font-weight: 500;
