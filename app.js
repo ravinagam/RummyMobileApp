@@ -220,6 +220,20 @@ const Store = {
     this._persist();
   },
 
+  getRules() {
+    this._load();
+    return this._cache.rules || {
+      targetScore: 201, gameAmount: 300,
+      dropScore: 20, midDropScore: 40, fullCountScore: 80
+    };
+  },
+
+  saveRules(rules) {
+    this._load();
+    this._cache.rules = { ...rules };
+    this._persist();
+  },
+
   saveSession(session) {
     this._load();
     const idx = this._cache.sessions.findIndex(s => s.id === session.id);
@@ -779,6 +793,38 @@ function renderHome() {
       <p>No games yet.<br>Tap <strong>New Game</strong> to start!</p>
     </div>` : '';
 
+  const r = Store.getRules();
+  const rulesHtml = `
+    <div class="form-section" style="margin-top:20px">
+      <h2 class="section-title">Rules</h2>
+      <div class="form-group">
+        <label class="form-label">Target Score</label>
+        <input type="number" class="input" id="rule-target" value="${r.targetScore}" min="1" max="9999">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Game Points</label>
+        <input type="number" class="input" id="rule-amount" value="${r.gameAmount}" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Drop Scores</label>
+        <div class="drop-scores-grid">
+          <div class="drop-score-item">
+            <label class="drop-score-label">D — Drop</label>
+            <input type="number" class="input" id="rule-drop" value="${r.dropScore}" min="0">
+          </div>
+          <div class="drop-score-item">
+            <label class="drop-score-label">M — Mid Drop</label>
+            <input type="number" class="input" id="rule-mid" value="${r.midDropScore}" min="0">
+          </div>
+          <div class="drop-score-item">
+            <label class="drop-score-label">F — Full Count</label>
+            <input type="number" class="input" id="rule-full" value="${r.fullCountScore}" min="0">
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-block" onclick="saveRulesFromHome()">Save Rules</button>
+    </div>`;
+
   setContent(`
     <div>
       ${activeHtml}
@@ -788,6 +834,7 @@ function renderHome() {
       </div>
       ${historyHtml}
       ${emptyHtml}
+      ${rulesHtml}
       <div class="data-transfer">
         <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Export Data</button>
         <label class="btn btn-outline btn-sm" style="cursor:pointer">
@@ -803,6 +850,17 @@ function renderHome() {
       </div>` : ''}
     </div>
   `);
+}
+
+function saveRulesFromHome() {
+  Store.saveRules({
+    targetScore:    parseInt(document.getElementById('rule-target').value) || 201,
+    gameAmount:     parseInt(document.getElementById('rule-amount').value) || 0,
+    dropScore:      parseInt(document.getElementById('rule-drop').value)   || 20,
+    midDropScore:   parseInt(document.getElementById('rule-mid').value)    || 40,
+    fullCountScore: parseInt(document.getElementById('rule-full').value)   || 80,
+  });
+  showToast('Rules saved!', 'success');
 }
 
 /* ============================================================
@@ -927,34 +985,6 @@ function renderSetup() {
         <div id="setup-players"></div>
       </div>
       <button id="btn-start-game" class="btn btn-primary btn-block" style="margin-bottom:16px" onclick="handleSetupSubmit()">Start Game →</button>
-      <div class="form-section">
-        <h2 class="section-title">Rules</h2>
-        <div class="form-group">
-          <label class="form-label">Target Score (game ends when a player reaches this)</label>
-          <input type="number" class="input" id="target-score" value="201" min="1" max="9999">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Game Points</label>
-          <input type="number" class="input" id="game-amount" value="300" min="0">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Drop Scores</label>
-          <div class="drop-scores-grid">
-            <div class="drop-score-item">
-              <label class="drop-score-label">D — Drop</label>
-              <input type="number" class="input" id="drop-score" value="20" min="0">
-            </div>
-            <div class="drop-score-item">
-              <label class="drop-score-label">M — Mid Drop</label>
-              <input type="number" class="input" id="mid-drop-score" value="40" min="0">
-            </div>
-            <div class="drop-score-item">
-              <label class="drop-score-label">F — Full Count</label>
-              <input type="number" class="input" id="full-count-score" value="80" min="0">
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   `);
 
@@ -1033,12 +1063,13 @@ function handleSetupSubmit() {
 
   const names = _setupSelected.map(p => p.name);
 
-  const targetScore    = parseInt(document.getElementById('target-score').value)    || 201;
+  const rules          = Store.getRules();
+  const targetScore    = rules.targetScore;
   const winCondition   = 'lowest';
-  const gameAmount     = parseInt(document.getElementById('game-amount').value)     || 0;
-  const dropScore      = parseInt(document.getElementById('drop-score').value)      || 20;
-  const midDropScore   = parseInt(document.getElementById('mid-drop-score').value)  || 40;
-  const fullCountScore = parseInt(document.getElementById('full-count-score').value)|| 80;
+  const gameAmount     = rules.gameAmount;
+  const dropScore      = rules.dropScore;
+  const midDropScore   = rules.midDropScore;
+  const fullCountScore = rules.fullCountScore;
 
   const checkedRadio = document.querySelector('#setup-players .dealer-radio:checked');
   const dealerIdx    = checkedRadio
