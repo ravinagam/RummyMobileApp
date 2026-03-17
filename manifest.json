@@ -42,6 +42,22 @@
       "purpose": "any"
     }
   ],
+  "screenshots": [
+    {
+      "src": "screenshot-home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home screen showing recent games"
+    },
+    {
+      "src": "screenshot-game.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Game scoreboard with player scores"
+    }
+  ],
   "shortcuts": [
     {
       "name": "New Game",
