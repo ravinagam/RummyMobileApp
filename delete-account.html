@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete Account — Rummy Score Board</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f1f5f9; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: white; border-radius: 16px; padding: 40px; max-width: 480px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    h1 { color: #dc2626; font-size: 24px; margin-bottom: 12px; }
+    p { color: #475569; font-size: 15px; line-height: 1.7; margin-bottom: 16px; }
+    label { display: block; font-size: 14px; font-weight: bold; color: #374151; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 15px; margin-bottom: 16px; outline: none; }
+    input:focus { border-color: #6366f1; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    .btn-danger { background: #dc2626; color: white; margin-bottom: 12px; }
+    .btn-outline { background: white; color: #475569; border: 1.5px solid #cbd5e1; }
+    .btn:hover { opacity: 0.9; }
+    .warning { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 14px; margin-bottom: 20px; color: #dc2626; font-size: 14px; }
+    .success { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px; margin-bottom: 20px; color: #16a34a; font-size: 14px; display: none; }
+    .error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 14px; margin-bottom: 20px; color: #dc2626; font-size: 14px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Delete Account</h1>
+    <p>Deleting your account will permanently remove all your game data, history, and player information. This action cannot be undone.</p>
+
+    <div class="warning">
+      ⚠️ All game sessions, scores, and history will be permanently deleted.
+    </div>
+
+    <div class="success" id="success-msg">
+      ✅ Your account has been successfully deleted. All data has been removed.
+    </div>
+
+    <div class="error" id="error-msg"></div>
+
+    <div id="form-section">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="Enter your username" autocorrect="off" autocapitalize="none">
+
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter your password">
+
+      <button class="btn btn-danger" onclick="deleteAccount()">Delete My Account</button>
+      <button class="btn btn-outline" onclick="window.location.href='/'">Cancel</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey:            'AIzaSyDPBG8aKWe_JLeLDz-lbV8Kea7TZPulJf0',
+      authDomain:        'rummy-d1e08.firebaseapp.com',
+      projectId:         'rummy-d1e08',
+      storageBucket:     'rummy-d1e08.firebasestorage.app',
+      messagingSenderId: '928659183389',
+      appId:             '1:928659183389:web:5cd159563d8ef2467533f4',
+    };
+
+    const app = firebase.initializeApp(FIREBASE_CONFIG);
+    const auth = firebase.auth(app);
+    const db = firebase.firestore(app);
+
+    async function deleteAccount() {
+      const username = document.getElementById('username').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('error-msg');
+      const successEl = document.getElementById('success-msg');
+
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+
+      if (!username || !password) {
+        errorEl.textContent = 'Please enter your username and password.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const email = username + '@rummy.app';
+
+      try {
+        // Sign in first
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        const uid = cred.user.uid;
+
+        // Delete Firestore data
+        await db.collection('rummy').doc(uid).delete();
+        await db.collection('recovery').doc(username).delete();
+
+        // Delete Firebase Auth account
+        await cred.user.delete();
+
+        // Show success
+        document.getElementById('form-section').style.display = 'none';
+        successEl.style.display = 'block';
+
+      } catch (err) {
+        const messages = {
+          'auth/user-not-found':   'No account found with this username.',
+          'auth/wrong-password':   'Incorrect password.',
+          'auth/invalid-credential': 'Incorrect username or password.',
+          'auth/too-many-requests':'Too many attempts. Please try again later.',
+        };
+        errorEl.textContent = messages[err.code] || 'Something went wrong. Please try again.';
+        errorEl.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
