@@ -1160,8 +1160,11 @@ function renderGame(params) {
   }
 
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
-  const rejoined     = Object.keys(session.adjustments || {});
+  const rejoined      = Object.keys(session.adjustments || {});
   const currentDealer = getCurrentDealer(session);
+  const targetScore   = session.rules.targetScore || 201;
+  const dropScore     = session.rules.dropScore   || 20;
+  const noDropThreshold = targetScore - dropScore + 1;
   // Use original player order, attach totals for display
   const orderedPlayers = session.players.map(p => ({ ...p, total: totals[p.id] ?? 0 }));
   const rankHtml = `
@@ -1170,9 +1173,9 @@ function renderGame(params) {
         const isOut      = knockedOut.includes(p.id);
         const hasRejoined = rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
-        const isDanger   = !isOut && p.total > 180;
+        const isNoDrop   = !isOut && p.total >= noDropThreshold;
         return `
-          <div class="rank-item ${isOut ? 'rank-out' : ''} ${isDealer ? 'rank-dealer' : ''} ${isDanger ? 'rank-danger' : ''}">
+          <div class="rank-item ${isOut ? 'rank-out' : isNoDrop ? 'rank-danger' : ''} ${isDealer ? 'rank-dealer' : ''}">
             <span class="rank-pos">${i + 1}</span>
             <span class="rank-name">${p.name}</span>
             ${isDealer    ? `<span class="badge badge-dealer">🃏</span>` : ''}
