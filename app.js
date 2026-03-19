@@ -1162,8 +1162,9 @@ function renderGame(params) {
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
   const rejoined      = Object.keys(session.adjustments || {});
   const currentDealer = getCurrentDealer(session);
-  const targetScore   = session.rules.targetScore || 201;
-  const dropScore     = session.rules.dropScore   || 20;
+  const activeRules   = isActive ? Store.getRules() : session.rules;
+  const targetScore   = activeRules.targetScore || 201;
+  const dropScore     = activeRules.dropScore   || 20;
   const noDropThreshold = targetScore - dropScore + 1;
   // Use original player order, attach totals for display
   const orderedPlayers = session.players.map(p => ({ ...p, total: totals[p.id] ?? 0 }));
@@ -1235,8 +1236,9 @@ function buildScoreTable(session, isActive) {
       : ''}</th>`)
     .join('');
 
-  const targetScore = session.rules.targetScore || 201;
-  const dropScore   = session.rules.dropScore   || 20;
+  const activeRules2    = isActive ? Store.getRules() : session.rules;
+  const targetScore     = activeRules2.targetScore || 201;
+  const dropScore       = activeRules2.dropScore   || 20;
   const noDropThreshold = targetScore - dropScore + 1;
 
   const bodyRows = session.players.map(player => {
