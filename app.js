@@ -1165,7 +1165,7 @@ function renderGame(params) {
   const activeRules   = isActive ? Store.getRules() : session.rules;
   const targetScore   = activeRules.targetScore || 201;
   const dropScore     = activeRules.dropScore   || 20;
-  const noDropThreshold = targetScore - dropScore + 1;
+  const noDropThreshold = targetScore - dropScore;
   // Use original player order, attach totals for display
   const orderedPlayers = session.players.map(p => ({ ...p, total: totals[p.id] ?? 0 }));
   const rankHtml = `
@@ -1239,7 +1239,7 @@ function buildScoreTable(session, isActive) {
   const activeRules2    = isActive ? Store.getRules() : session.rules;
   const targetScore     = activeRules2.targetScore || 201;
   const dropScore       = activeRules2.dropScore   || 20;
-  const noDropThreshold = targetScore - dropScore + 1;
+  const noDropThreshold = targetScore - dropScore;
 
   const bodyRows = session.players.map(player => {
     const isOut       = knockedOut.includes(player.id);
