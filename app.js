@@ -1770,8 +1770,16 @@ function rejoinPlayer(sessionId, playerId) {
   const activeTotals = session.players
     .filter(p => !knockedOut.includes(p.id))
     .map(p => totals[p.id]);
-  const highestActive = activeTotals.length > 0 ? Math.max(...activeTotals) : totals[playerId];
+  const highestActive  = activeTotals.length > 0 ? Math.max(...activeTotals) : totals[playerId];
   const suggestedScore = highestActive + 1;
+
+  const currentRules = Store.getRules();
+  const targetScore  = currentRules.targetScore || 201;
+  const dropScore    = currentRules.dropScore   || 20;
+  if (highestActive + 1 + dropScore >= targetScore) {
+    showToast(`Rejoin not allowed — scores too close to target (${targetScore})`, 'error');
+    return;
+  }
 
   showModal(`
     <div class="modal-header">
