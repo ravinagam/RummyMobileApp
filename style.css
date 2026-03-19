@@ -485,6 +485,15 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   background: var(--danger-light) !important;
   border-left: 2px solid #fca5a5;
 }
+tr.row-out td {
+  background: rgba(220,38,38,0.08) !important;
+  color: var(--danger);
+}
+tr.row-out td.player-col {
+  background: rgba(220,38,38,0.08) !important;
+  color: var(--danger);
+  font-weight: 600;
+}
 
 /* ---- Score table ---- */
 .score-table-wrapper {

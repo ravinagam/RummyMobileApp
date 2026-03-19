@@ -1251,7 +1251,7 @@ function buildScoreTable(session, isActive) {
     const nameLabel = `${player.name}${hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span>' : ''}`;
 
     return `
-      <tr>
+      <tr class="${isOut ? 'row-out' : ''}">
         <td class="player-col sticky">${nameLabel}</td>
         ${scoreCells}
         <td class="total-col ${isOut ? 'total-out' : ''}">${totals[player.id]}</td>
