@@ -494,6 +494,15 @@ tr.row-out td.player-col {
   color: var(--danger);
   font-weight: 600;
 }
+tr.row-nodrop td {
+  background: rgba(220,38,38,0.08) !important;
+  color: var(--danger);
+}
+tr.row-nodrop td.player-col {
+  background: rgba(220,38,38,0.08) !important;
+  color: var(--danger);
+  font-weight: 600;
+}
 
 /* ---- Score table ---- */
 .score-table-wrapper {

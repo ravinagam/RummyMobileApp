@@ -1232,9 +1232,15 @@ function buildScoreTable(session, isActive) {
       : ''}</th>`)
     .join('');
 
+  const targetScore = session.rules.targetScore || 201;
+  const dropScore   = session.rules.dropScore   || 20;
+  const noDropThreshold = targetScore - dropScore + 1;
+
   const bodyRows = session.players.map(player => {
     const isOut       = knockedOut.includes(player.id);
     const hasRejoined = rejoined.includes(player.id);
+    const playerTotal = totals[player.id];
+    const isNoDrop    = !isOut && playerTotal >= noDropThreshold;
 
     const scoreCells = session.rounds.map(round => {
       const score = round.scores[player.id] ?? 0;
@@ -1251,10 +1257,10 @@ function buildScoreTable(session, isActive) {
     const nameLabel = `${player.name}${hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span>' : ''}`;
 
     return `
-      <tr class="${isOut ? 'row-out' : ''}">
+      <tr class="${isOut ? 'row-out' : isNoDrop ? 'row-nodrop' : ''}">
         <td class="player-col sticky">${nameLabel}</td>
         ${scoreCells}
-        <td class="total-col ${isOut ? 'total-out' : ''}">${totals[player.id]}</td>
+        <td class="total-col ${isOut ? 'total-out' : ''}">${playerTotal}</td>
       </tr>`;
   }).join('');
 
