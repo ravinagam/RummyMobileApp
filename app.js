@@ -268,8 +268,9 @@ const Store = {
       rules: { ...rules },
       players: playerNames.map(name => ({ id: uuid(), name: name.trim() })),
       rounds: [],
-      knockedOut: [],  // player IDs who have reached the target
-      adjustments: {}  // playerId → score offset applied on rejoin
+      knockedOut: [],     // player IDs who have reached the target
+      knockedOutRound: {}, // playerId → round index when knocked out
+      adjustments: {}     // playerId → score offset applied on rejoin
     };
     this.saveSession(session);
     return session;
@@ -289,9 +290,11 @@ const Store = {
     if (session.rules.targetScore) {
       const totals = getPlayerTotals(session);
       const ko = session.knockedOut || [];
+      session.knockedOutRound = session.knockedOutRound || {};
       session.players.forEach(p => {
         if (!ko.includes(p.id) && totals[p.id] >= session.rules.targetScore) {
           ko.push(p.id);
+          session.knockedOutRound[p.id] = session.rounds.length;
         }
       });
       session.knockedOut = ko;
@@ -1205,9 +1208,13 @@ function renderGame(params) {
               onclick="confirmEndGame('${session.id}')">End Game</button>
     </div>` : '';
 
+  const onlyOneActive = isActive && activePlayers.length <= 1;
   const bottomActionsHtml = isActive ? `
     <div class="fab-container">
-      <button class="fab" onclick="showAddRoundModal('${session.id}')">+ Round</button>
+      ${onlyOneActive
+        ? `<button class="fab" disabled title="Only one player left — end the game" style="opacity:0.5;cursor:not-allowed">+ Round</button>`
+        : `<button class="fab" onclick="showAddRoundModal('${session.id}')">+ Round</button>`
+      }
     </div>` : `
     <div class="game-actions">
       <button class="btn btn-outline"
@@ -1309,7 +1316,7 @@ function showEditRoundModal(sessionId, roundId) {
         <label class="form-label">${p.name}</label>
         <div class="score-input-row">
           <input type="number" class="input round-score-input"
-                 data-player="${p.id}" value="${score}"
+                 data-player="${p.id}" data-fullcount="${f}" value="${score}"
                  placeholder="0" oninput="liveValidateRoundScore(this)">
           <div class="score-quick-btns">
             <button type="button" class="btn-quick" onclick="fillDropScore(this,${d})">D</button>
@@ -1411,6 +1418,11 @@ function showAddRoundModal(sessionId) {
   if (!session) return;
 
   const knockedOut = session.knockedOut || [];
+  const activePlayers = session.players.filter(p => !knockedOut.includes(p.id));
+  if (activePlayers.length <= 1) {
+    showToast('Only one player left — please end the game', 'warning');
+    return;
+  }
   let firstActive = true;
   const inputs = session.players.map(p => {
     const isOut = knockedOut.includes(p.id);
@@ -1434,7 +1446,7 @@ function showAddRoundModal(sessionId) {
         <label class="form-label">${p.name}</label>
         <div class="score-input-row">
           <input type="number" class="input round-score-input"
-                 data-player="${p.id}"
+                 data-player="${p.id}" data-fullcount="${f}"
                  placeholder="0"
                  oninput="liveValidateRoundScore(this)"
                  ${autofocus}>
@@ -1641,9 +1653,16 @@ function parseAndFillScores(transcript, session) {
 function liveValidateRoundScore(changedInput) {
   const inputs = Array.from(document.querySelectorAll('.round-score-input'));
   const val = parseInt(changedInput.value);
+  const fullCount = parseInt(changedInput.dataset.fullcount ?? 80);
 
   // Clear error on current input first
   changedInput.classList.remove('input-error');
+
+  // Rule 3: score cannot exceed full count
+  if (!isNaN(val) && val > fullCount) {
+    changedInput.value = fullCount;
+    showToast(`Max score is full count (${fullCount})`, 'warning');
+  }
 
   if (!isNaN(val) && val === 0) {
     // Block if another player already has 0
@@ -1778,6 +1797,14 @@ function rejoinPlayer(sessionId, playerId) {
   const dropScore    = currentRules.dropScore   || 20;
   if (highestActive + 1 + dropScore >= targetScore) {
     showToast(`Rejoin not allowed — scores too close to target (${targetScore})`, 'error');
+    return;
+  }
+
+  // Rule 1: block rejoin if more than one round played since knockout
+  const knockedOutRound = session.knockedOutRound || {};
+  const koRound = knockedOutRound[playerId];
+  if (koRound !== undefined && session.rounds.length > koRound) {
+    showToast('Rejoin not allowed — one round already played since knockout', 'error');
     return;
   }
 
