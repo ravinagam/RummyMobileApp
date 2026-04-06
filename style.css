@@ -880,10 +880,10 @@ tr.row-nodrop td.player-col {
   flex-shrink: 0;
 }
 .btn-quick {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   background: var(--primary-light);
   color: var(--primary-dark);

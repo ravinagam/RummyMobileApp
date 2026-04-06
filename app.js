@@ -444,10 +444,26 @@ function getWinner(session) {
 function getCurrentDealer(session) {
   const firstDealer = session.rules && session.rules.firstDealer;
   if (!firstDealer) return null;
-  const players = session.players;
-  const startIdx = players.findIndex(p => p.name === firstDealer);
+  const players    = session.players;
+  const knockedOut = session.knockedOut || [];
+  const startIdx   = players.findIndex(p => p.name === firstDealer);
   if (startIdx === -1) return null;
-  const idx = (startIdx + session.rounds.length) % players.length;
+
+  // Rotate through rounds, skipping knocked-out players
+  let roundsLeft = session.rounds.length;
+  let idx        = startIdx;
+  while (roundsLeft > 0) {
+    idx = (idx + 1) % players.length;
+    if (!knockedOut.includes(players[idx].id)) roundsLeft--;
+  }
+  // If computed dealer is knocked out, find next active player
+  if (knockedOut.includes(players[idx].id)) {
+    for (let i = 1; i <= players.length; i++) {
+      const next = (idx + i) % players.length;
+      if (!knockedOut.includes(players[next].id)) return players[next];
+    }
+    return null;
+  }
   return players[idx];
 }
 
@@ -927,6 +943,7 @@ function renderPlayers() {
       </div>
     </div>
   `);
+  setTimeout(() => document.getElementById('new-player-name')?.focus(), 100);
 
 }
 
@@ -949,6 +966,7 @@ function addRegisteredPlayer() {
   input.value = '';
   showToast(`${name} added!`, 'success');
   renderPlayers();
+  setTimeout(() => document.getElementById('new-player-name')?.focus(), 50);
 }
 
 function confirmDeletePlayer(id, name) {
@@ -1178,11 +1196,17 @@ function renderGame(params) {
         const hasRejoined = rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
         const isNoDrop   = !isOut && p.total >= noDropThreshold;
+        // Row class: OUT > NoDrop+Dealer(green) > NoDrop(red) > Dealer(green) > normal
+        const rowClass   = isOut ? 'rank-out'
+                         : (isNoDrop && isDealer) ? 'rank-dealer'
+                         : isNoDrop ? 'rank-danger'
+                         : isDealer ? 'rank-dealer'
+                         : '';
         return `
-          <div class="rank-item ${isOut ? 'rank-out' : isNoDrop ? 'rank-danger' : ''} ${isDealer ? 'rank-dealer' : ''}">
+          <div class="rank-item ${rowClass}">
             <span class="rank-pos">${i + 1}</span>
             <span class="rank-name">${p.name}</span>
-            ${isDealer    ? `<span class="badge badge-dealer">🃏</span>` : ''}
+            ${isNoDrop ? `<span class="badge badge-out" style="${isDealer ? 'background:#dcfce7;color:#15803d;border-color:#86efac' : 'background:#fee2e2;color:var(--danger);border-color:#fca5a5'}">ND</span>` : ''}
             ${isOut       ? `<span class="badge badge-out">OUT</span>` : ''}
             ${hasRejoined ? `<span class="badge badge-rejoin">R</span>` : ''}
             <span class="rank-score">${p.total}</span>
@@ -1256,14 +1280,15 @@ function buildScoreTable(session, isActive) {
 
     const scoreCells = session.rounds.map(round => {
       const score = round.scores[player.id] ?? 0;
+      const zeroStyle = score === 0 ? 'background:#dcfce7;color:#15803d;font-weight:800;border-radius:4px;' : '';
       if (isActive) {
-        return `<td class="score-cell"
+        return `<td class="score-cell" style="${zeroStyle}"
                     data-session="${session.id}"
                     data-round="${round.id}"
                     data-player="${player.id}"
                     onclick="startEditScore(this)">${score}</td>`;
       }
-      return `<td class="score-cell">${score}</td>`;
+      return `<td class="score-cell" style="${zeroStyle}">${score}</td>`;
     }).join('');
 
     const nameLabel = `${player.name}${hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span>' : ''}`;
@@ -1468,15 +1493,15 @@ function showAddRoundModal(sessionId) {
       <button id="btn-voice-scores" class="btn-mic" onclick="startVoiceScoreEntry('${sessionId}')" title="Tap to start, tap again to stop">🎤</button>
       <button class="btn-icon" onclick="hideModal()">✕</button>
     </div>
+    <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="submitRound(null, '${sessionId}')">Save Round</button>
+    </div>
     <div class="modal-body">
       <form id="round-form" onsubmit="submitRound(event, '${sessionId}')">
         ${inputs}
         <button type="submit" style="display:none">Submit</button>
       </form>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitRound(null, '${sessionId}')">Save Round</button>
     </div>
   `);
 }
@@ -1768,12 +1793,12 @@ function confirmEndGame(sessionId) {
       <h2>Game Settlement 💰</h2>
       <button class="btn-icon" onclick="hideModal()">✕</button>
     </div>
+    <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" onclick="endGame('${sessionId}')">End Game</button>
+    </div>
     <div class="modal-body">
       <div class="money-list">${playerRows}</div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
-      <button class="btn btn-danger" onclick="endGame('${sessionId}')">End Game</button>
     </div>
   `);
 }
