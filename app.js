@@ -1838,6 +1838,13 @@ function rejoinPlayer(sessionId, playerId) {
       <h2>${player?.name ?? 'Player'} Rejoins</h2>
       <button class="btn-icon" onclick="hideModal()">✕</button>
     </div>
+    <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1"
+              onclick="confirmRejoin('${sessionId}','${playerId}',${totals[playerId]})">
+        Confirm Rejoin
+      </button>
+    </div>
     <div class="modal-body">
       <p style="color:var(--text-muted);font-size:14px;margin-bottom:14px">
         Current total: <strong>${totals[playerId]}</strong>.
@@ -1848,13 +1855,6 @@ function rejoinPlayer(sessionId, playerId) {
         <input type="number" class="input" id="rejoin-score"
                value="${suggestedScore}" min="0">
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
-      <button class="btn btn-primary"
-              onclick="confirmRejoin('${sessionId}','${playerId}',${totals[playerId]})">
-        Confirm Rejoin
-      </button>
     </div>
   `);
 }
