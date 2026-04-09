@@ -270,7 +270,8 @@ const Store = {
       rounds: [],
       knockedOut: [],     // player IDs who have reached the target
       knockedOutRound: {}, // playerId → round index when knocked out
-      adjustments: {}     // playerId → score offset applied on rejoin
+      adjustments: {},    // playerId → score offset applied on rejoin
+      quitPlayers: []     // player IDs who voluntarily quit
     };
     this.saveSession(session);
     return session;
@@ -317,7 +318,8 @@ const Store = {
   rejoinPlayer(sessionId, playerId, adjustment) {
     const session = this.getSession(sessionId);
     if (!session) return;
-    session.knockedOut = (session.knockedOut || []).filter(id => id !== playerId);
+    session.knockedOut  = (session.knockedOut  || []).filter(id => id !== playerId);
+    session.quitPlayers = (session.quitPlayers || []).filter(id => id !== playerId);
     if (adjustment !== undefined) {
       session.adjustments = session.adjustments || {};
       // Add to any existing adjustment for this player
@@ -356,6 +358,7 @@ const Store = {
     const round = session.rounds.find(r => r.id === roundId);
     if (!round) return;
     round.scores[playerId] = newScore;
+    this._recomputeKnockedOut(session);
     this.saveSession(session);
   },
 
@@ -365,7 +368,25 @@ const Store = {
     const round = session.rounds.find(r => r.id === roundId);
     if (!round) return;
     round.scores = { ...scores };
+    this._recomputeKnockedOut(session);
     this.saveSession(session);
+  },
+
+  _recomputeKnockedOut(session) {
+    if (!session.rules.targetScore) return;
+    const totals      = getPlayerTotals(session);
+    const koRound     = session.knockedOutRound || {};
+    const quitPlayers = session.quitPlayers || [];
+    session.knockedOut = (session.knockedOut || []).filter(pid => {
+      // Never restore a player who voluntarily quit
+      if (quitPlayers.includes(pid)) return true;
+      if (totals[pid] < session.rules.targetScore) {
+        delete koRound[pid];
+        return false;
+      }
+      return true;
+    });
+    session.knockedOutRound = koRound;
   },
 
   completeSession(sessionId, money) {
@@ -1182,6 +1203,7 @@ function renderGame(params) {
 
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
   const rejoined      = Object.keys(session.adjustments || {});
+  const newPlayers    = session.newPlayers || [];
   const currentDealer = getCurrentDealer(session);
   const activeRules   = isActive ? Store.getRules() : session.rules;
   const targetScore   = activeRules.targetScore || 201;
@@ -1193,7 +1215,8 @@ function renderGame(params) {
     <div class="rank-list" style="margin-bottom:14px">
       ${orderedPlayers.map((p, i) => {
         const isOut      = knockedOut.includes(p.id);
-        const hasRejoined = rejoined.includes(p.id);
+        const isNew      = newPlayers.includes(p.id);
+        const hasRejoined = !isNew && rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
         const isNoDrop   = !isOut && p.total >= noDropThreshold;
         // Row class: OUT > NoDrop+Dealer(green) > NoDrop(red) > Dealer(green) > normal
@@ -1208,11 +1231,16 @@ function renderGame(params) {
             <span class="rank-name">${p.name}</span>
             ${isNoDrop ? `<span class="badge badge-out" style="${isDealer ? 'background:#dcfce7;color:#15803d;border-color:#86efac' : 'background:#fee2e2;color:var(--danger);border-color:#fca5a5'}">ND</span>` : ''}
             ${isOut       ? `<span class="badge badge-out">OUT</span>` : ''}
+            ${isNew       ? `<span class="badge badge-rejoin" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>` : ''}
             ${hasRejoined ? `<span class="badge badge-rejoin">R</span>` : ''}
             <span class="rank-score">${p.total}</span>
             ${isActive && isOut
               ? `<button class="btn btn-sm btn-outline" style="margin-left:6px"
                          onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
+              : ''}
+            ${isActive && !isOut
+              ? `<button class="btn btn-sm btn-outline" style="margin-left:6px"
+                         onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
               : ''}
           </div>`;
       }).join('')}
@@ -1235,6 +1263,8 @@ function renderGame(params) {
   const onlyOneActive = isActive && activePlayers.length <= 1;
   const bottomActionsHtml = isActive ? `
     <div class="fab-container">
+      <button class="fab" style="margin-right:8px"
+              onclick="showAddPlayerToGameModal('${session.id}')">Add Player</button>
       ${onlyOneActive
         ? `<button class="fab" disabled title="Only one player left — end the game" style="opacity:0.5;cursor:not-allowed">+ Round</button>`
         : `<button class="fab" onclick="showAddRoundModal('${session.id}')">+ Round</button>`
@@ -1245,6 +1275,15 @@ function renderGame(params) {
               onclick="confirmDeleteSession('${session.id}')">Delete Game</button>
     </div>`;
 
+  const legendHtml = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 12px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);margin-top:8px">
+      <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span> New Player</span>
+      <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span> Rejoined</span>
+      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#dcfce7;color:#15803d;border-color:#86efac">ND</span> No Drop</span>
+      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px">OUT</span> Knocked Out</span>
+      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fef9c3;color:#854d0e;border-color:#fde047">Q</span> Quit</span>
+    </div>`;
+
   setContent(`
     <div>
       ${completedHtml}
@@ -1252,6 +1291,7 @@ function renderGame(params) {
       ${rankHtml}
       <div class="score-table-wrapper">${tableHtml}</div>
       ${bottomActionsHtml}
+      ${legendHtml}
     </div>
   `);
 }
@@ -1260,6 +1300,7 @@ function buildScoreTable(session, isActive) {
   const totals     = getPlayerTotals(session);
   const knockedOut = session.knockedOut || [];
   const rejoined   = Object.keys(session.adjustments || {});
+  const newPlayers = session.newPlayers || [];
 
   const headerCells = session.rounds
     .map(r => `<th>R${r.number}${isActive
@@ -1274,7 +1315,8 @@ function buildScoreTable(session, isActive) {
 
   const bodyRows = session.players.map(player => {
     const isOut       = knockedOut.includes(player.id);
-    const hasRejoined = rejoined.includes(player.id);
+    const isNew       = newPlayers.includes(player.id);
+    const hasRejoined = !isNew && rejoined.includes(player.id);
     const playerTotal = totals[player.id];
     const isNoDrop    = !isOut && playerTotal >= noDropThreshold;
 
@@ -1291,7 +1333,7 @@ function buildScoreTable(session, isActive) {
       return `<td class="score-cell" style="${zeroStyle}">${score}</td>`;
     }).join('');
 
-    const nameLabel = `${player.name}${hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span>' : ''}`;
+    const nameLabel = `${player.name}${isNew ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>' : hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span>' : ''}`;
 
     return `
       <tr class="${isOut ? 'row-out' : isNoDrop ? 'row-nodrop' : ''}">
@@ -1801,6 +1843,139 @@ function confirmEndGame(sessionId) {
       <div class="money-list">${playerRows}</div>
     </div>
   `);
+}
+
+function quitPlayer(sessionId, playerId) {
+  const session = Store.getSession(sessionId);
+  if (!session) return;
+  const player = session.players.find(p => p.id === playerId);
+  showModal(`
+    <div class="modal-header">
+      <h2>${player?.name ?? 'Player'} Quit</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <button class="btn btn-outline" style="flex:1" onclick="hideModal()">No</button>
+      <button class="btn btn-primary" style="flex:1"
+              onclick="confirmQuit('${sessionId}','${playerId}')">Yes</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-muted);font-size:14px">
+        Do you want to Quit? <strong>${player?.name ?? 'Player'}</strong> will be marked as OUT and can Rejoin later.
+      </p>
+    </div>
+  `);
+}
+
+function confirmQuit(sessionId, playerId) {
+  Store.knockoutPlayer(sessionId, playerId);
+  const session = Store.getSession(sessionId);
+  session.knockedOutRound = session.knockedOutRound || {};
+  session.knockedOutRound[playerId] = session.rounds.length;
+  session.quitPlayers = session.quitPlayers || [];
+  if (!session.quitPlayers.includes(playerId)) session.quitPlayers.push(playerId);
+  Store.saveSession(session);
+  hideModal();
+  renderGame([sessionId]);
+  const player = session.players.find(p => p.id === playerId);
+  showToast(`${player?.name ?? 'Player'} has quit`, 'info');
+}
+
+function showAddPlayerToGameModal(sessionId) {
+  const session        = Store.getSession(sessionId);
+  if (!session) return;
+  const allRegistered  = Store.getPlayers();
+  const inGameNames    = session.players.map(p => p.name.toLowerCase());
+  const available      = allRegistered.filter(p => !inGameNames.includes(p.name.toLowerCase()));
+
+  if (available.length === 0) {
+    showModal(`
+      <div class="modal-header">
+        <h2>Add Player</h2>
+        <button class="btn-icon" onclick="hideModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-muted);font-size:14px">
+          No registered players available. Please register a new player first and then come back to add them.
+        </p>
+        <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="hideModal()">OK</button>
+      </div>
+    `);
+    return;
+  }
+
+  const totals        = getPlayerTotals(session);
+  const knockedOut    = session.knockedOut || [];
+  const activeTotals  = session.players.filter(p => !knockedOut.includes(p.id)).map(p => totals[p.id]);
+  const suggestedScore = activeTotals.length > 0 ? Math.max(...activeTotals) + 1 : 0;
+
+  const options = available.map(p =>
+    `<option value="${p.id}">${p.name}</option>`
+  ).join('');
+
+  showModal(`
+    <div class="modal-header">
+      <h2>Add Player</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1"
+              onclick="confirmAddPlayerToGame('${sessionId}')">Add</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Select Player</label>
+        <select class="input" id="add-player-select">${options}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Starting Score</label>
+        <input type="number" class="input" id="add-player-score"
+               value="${suggestedScore}" min="0">
+      </div>
+    </div>
+  `);
+}
+
+function confirmAddPlayerToGame(sessionId) {
+  const session  = Store.getSession(sessionId);
+  if (!session) return;
+  const select   = document.getElementById('add-player-select');
+  const scoreInput = document.getElementById('add-player-score');
+  const playerId = select?.value;
+  const score    = parseInt(scoreInput?.value);
+
+  if (!playerId) return;
+  if (isNaN(score) || score < 0) {
+    scoreInput?.classList.add('input-error');
+    return;
+  }
+
+  const allRegistered = Store.getPlayers();
+  const player        = allRegistered.find(p => p.id === playerId);
+  if (!player) return;
+
+  // Add player to session
+  session.players = session.players || [];
+  session.players.push({ id: player.id, name: player.name });
+
+  // Fill all previous rounds with drop score
+  const dropScore = (session.rules.dropScore || 20);
+  session.rounds.forEach(r => { r.scores[player.id] = dropScore; });
+
+  // Set adjustment so total = previous rounds sum + adjustment = desired starting score
+  const previousTotal = session.rounds.length * dropScore;
+  session.adjustments = session.adjustments || {};
+  session.adjustments[player.id] = score - previousTotal;
+
+  // Track as newly added (shows N badge, not R)
+  session.newPlayers = session.newPlayers || [];
+  if (!session.newPlayers.includes(player.id)) session.newPlayers.push(player.id);
+
+  Store.saveSession(session);
+  hideModal();
+  renderGame([sessionId]);
+  showToast(`${player.name} added with score ${score}`, 'success');
 }
 
 function rejoinPlayer(sessionId, playerId) {
