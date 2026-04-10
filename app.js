@@ -1254,21 +1254,16 @@ function renderGame(params) {
        </div>`;
 
   /* Action buttons */
-  const endGameBtnHtml = isActive ? `
-    <div class="game-actions" style="margin-top:4px;margin-bottom:4px">
-      <button class="btn btn-sm btn-outline btn-danger"
-              onclick="confirmEndGame('${session.id}')">End Game</button>
-    </div>` : '';
 
   const onlyOneActive = isActive && activePlayers.length <= 1;
   const bottomActionsHtml = isActive ? `
-    <div class="fab-container">
-      <button class="fab" style="margin-right:8px"
-              onclick="showAddPlayerToGameModal('${session.id}')">Add Player</button>
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface);position:sticky;bottom:0">
+      <button class="btn btn-sm btn-primary" style="flex:1" onclick="showAddPlayerToGameModal('${session.id}')">Add Player</button>
       ${onlyOneActive
-        ? `<button class="fab" disabled title="Only one player left — end the game" style="opacity:0.5;cursor:not-allowed">+ Round</button>`
-        : `<button class="fab" onclick="showAddRoundModal('${session.id}')">+ Round</button>`
+        ? `<button class="btn" disabled style="flex:2;opacity:0.5;cursor:not-allowed;font-size:16px;padding:10px 0;background:#16a34a;color:#fff">Add Round</button>`
+        : `<button class="btn" style="flex:2;font-size:16px;padding:10px 0;background:#16a34a;color:#fff" onclick="showAddRoundModal('${session.id}')">Add Round</button>`
       }
+      <button class="btn btn-sm btn-danger" style="flex:1" onclick="confirmEndGame('${session.id}')">End Game</button>
     </div>` : `
     <div class="game-actions">
       <button class="btn btn-outline"
@@ -1287,11 +1282,10 @@ function renderGame(params) {
   setContent(`
     <div>
       ${completedHtml}
-      ${endGameBtnHtml}
       ${rankHtml}
       <div class="score-table-wrapper">${tableHtml}</div>
-      ${bottomActionsHtml}
       ${legendHtml}
+      ${bottomActionsHtml}
     </div>
   `);
 }
