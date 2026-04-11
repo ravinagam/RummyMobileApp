@@ -1237,10 +1237,10 @@ function renderGame(params) {
           ? `<span class="badge badge-out" style="${isDealer ? 'background:#dcfce7;color:#15803d;border-color:#86efac' : 'background:#fee2e2;color:var(--danger);border-color:#fca5a5'}">ND</span>`
           : isOut ? `<span class="badge badge-out">OUT</span>`
           : isNew ? `<span class="badge badge-rejoin" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>`
-          : hasRejoined ? `<span class="badge badge-rejoin">R</span>`
+          : hasRejoined ? `<span class="badge badge-rejoin" style="background:#dcfce7;color:#15803d;border-color:#86efac">R</span>`
           : '';
         const actionBtn = isActive && isOut
-          ? `<button class="btn btn-sm btn-outline" onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
+          ? `<button class="btn btn-sm" style="background:#16a34a;color:#fff;border:1.5px solid #15803d" onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
           : isActive && !isOut
           ? `<button class="btn btn-sm" style="background:#fef08a;color:#854d0e;border:1.5px solid #eab308" onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
           : '';
@@ -1282,7 +1282,7 @@ function renderGame(params) {
   const legendHtml = `
     <div style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 12px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);margin-top:8px">
       <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span> New Player</span>
-      <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span> Rejoined</span>
+      <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#dcfce7;color:#15803d;border-color:#86efac">R</span> Rejoined</span>
       <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fee2e2;color:var(--danger);border-color:#fca5a5">ND</span> No Drop</span>
       <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px">OUT</span> Knocked Out</span>
       <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fef08a;color:#854d0e;border-color:#eab308">Q</span> Quit</span>
@@ -1338,7 +1338,7 @@ function buildScoreTable(session, isActive) {
       return `<td class="score-cell" style="${zeroStyle}">${score}</td>`;
     }).join('');
 
-    const nameLabel = `${player.name}${isNew ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>' : hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span>' : ''}`;
+    const nameLabel = `${player.name}${isNew ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>' : hasRejoined ? ' <span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#dcfce7;color:#15803d;border-color:#86efac">R</span>' : ''}`;
 
     return `
       <tr class="${isOut ? 'row-out' : isNoDrop ? 'row-nodrop' : ''}">
