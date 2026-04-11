@@ -1517,7 +1517,11 @@ function showAddRoundModal(sessionId) {
     const f = session.rules.fullCountScore ?? 80;
     return `
       <div class="form-group">
-        <label class="form-label">${p.name}</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <label class="form-label" style="margin:0">${p.name}</label>
+          <button type="button" class="btn btn-sm" style="background:#1e293b;color:#fff;font-size:11px;padding:3px 8px"
+                  onclick="openCardScanner('${p.id}','${p.name}')">📷 Scan Cards</button>
+        </div>
         <div class="score-input-row">
           <input type="number" class="input round-score-input"
                  data-player="${p.id}" data-fullcount="${f}"
@@ -1545,6 +1549,16 @@ function showAddRoundModal(sessionId) {
     <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
       <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
       <button class="btn btn-primary" style="flex:1" onclick="submitRound(null, '${sessionId}')">Save Round</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#fefce8;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;font-weight:600;white-space:nowrap">🃏 Joker Card:</span>
+      <input type="text" id="joker-card-input" maxlength="2"
+             value="${session.currentJoker || ''}"
+             placeholder="e.g. 5 or K"
+             style="width:70px;text-align:center;font-weight:700;font-size:14px;text-transform:uppercase"
+             class="input" oninput="this.value=this.value.toUpperCase()"
+             title="Enter the wild card joker rank (A,2-10,J,Q,K)">
+      <span style="font-size:11px;color:var(--text-muted)">All cards of this rank = Joker</span>
     </div>
     <div style="display:flex;gap:8px;padding:6px 16px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted)">
       <span><button class="btn-quick" style="pointer-events:none;font-size:11px;padding:2px 6px">D</button> Drop</span>
@@ -1768,6 +1782,12 @@ function liveValidateRoundScore(changedInput) {
 
 function submitRound(e, sessionId) {
   if (e) e.preventDefault();
+  // Save joker card to session
+  const jokerInput = document.getElementById('joker-card-input');
+  if (jokerInput && jokerInput.value.trim()) {
+    const session = Store.getSession(sessionId);
+    if (session) { session.currentJoker = jokerInput.value.trim().toUpperCase(); Store.saveSession(session); }
+  }
   const inputs = document.querySelectorAll('.round-score-input');
   const scores = {};
   let valid = true;
@@ -1878,6 +1898,100 @@ function quitPlayer(sessionId, playerId) {
       </p>
     </div>
   `);
+}
+
+/* ============================================================
+   CARD SCANNER
+   ============================================================ */
+let _scanStream = null;
+
+function openCardScanner(playerId, playerName) {
+  const joker = document.getElementById('joker-card-input')?.value?.trim()?.toUpperCase() || '?';
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="card-scanner-overlay" style="position:fixed;inset:0;background:#000;z-index:500;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#1e293b;color:#fff">
+        <span style="font-weight:700;font-size:16px">📷 ${playerName} — Scan 13 Cards</span>
+        <button onclick="closeCardScanner()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer">✕</button>
+      </div>
+      <div style="padding:8px 16px;background:#fefce8;font-size:13px;color:#854d0e">
+        🃏 Wild Joker: <strong>${joker}</strong> — Lay all 13 cards flat, no overlap
+      </div>
+      <div style="position:relative;flex:1;overflow:hidden">
+        <video id="card-scan-video" autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>
+        <div style="position:absolute;inset:0;border:3px dashed rgba(255,255,255,0.5);margin:20px;border-radius:12px;pointer-events:none"></div>
+      </div>
+      <div style="padding:12px 16px;background:#1e293b;display:flex;flex-direction:column;gap:8px">
+        <div id="scan-card-count" style="color:#fff;font-size:14px;text-align:center">Point camera at all 13 cards laid flat</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="closeCardScanner()" class="btn btn-outline" style="flex:1;color:#fff;border-color:#fff">Cancel</button>
+          <button onclick="captureCardImage('${playerId}')" class="btn btn-primary" style="flex:1;font-size:16px">📸 Capture</button>
+        </div>
+      </div>
+      <canvas id="card-scan-canvas" style="display:none"></canvas>
+    </div>
+  `);
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    .then(stream => {
+      _scanStream = stream;
+      document.getElementById('card-scan-video').srcObject = stream;
+    })
+    .catch(() => {
+      document.getElementById('scan-card-count').textContent = '❌ Camera not available';
+    });
+}
+
+function captureCardImage(playerId) {
+  const video  = document.getElementById('card-scan-video');
+  const canvas = document.getElementById('card-scan-canvas');
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  // Count cards by detecting rectangular regions (simplified)
+  const count = detectCardCount(canvas);
+  const msg   = document.getElementById('scan-card-count');
+
+  if (count < 13) {
+    msg.innerHTML = `<span style="color:#f87171">⚠️ Only ${count} card${count===1?'':'s'} detected. Show all 13 cards clearly.</span>`;
+  } else if (count > 13) {
+    msg.innerHTML = `<span style="color:#f87171">⚠️ ${count} cards detected — ensure only one player's cards are visible.</span>`;
+  } else {
+    msg.innerHTML = `<span style="color:#86efac">✅ 13 cards detected!</span>`;
+    setTimeout(() => {
+      closeCardScanner();
+      showToast(`13 cards confirmed for ${playerId} — enter score manually`, 'success');
+    }, 1000);
+  }
+}
+
+function detectCardCount(canvas) {
+  // Simple edge-based card detection using brightness contrast
+  const ctx  = canvas.getContext('2d');
+  const w    = canvas.width;
+  const h    = canvas.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+
+  // Sample grid to find white/light rectangular regions (card faces)
+  const gridW = 20, gridH = 15;
+  const cellW = Math.floor(w / gridW);
+  const cellH = Math.floor(h / gridH);
+  let brightCells = 0;
+
+  for (let gy = 0; gy < gridH; gy++) {
+    for (let gx = 0; gx < gridW; gx++) {
+      const px = (gy * cellH * w + gx * cellW) * 4;
+      const brightness = (data[px] + data[px+1] + data[px+2]) / 3;
+      if (brightness > 180) brightCells++;
+    }
+  }
+
+  // Estimate card count from bright regions (each card ≈ 2-3 grid cells wide)
+  return Math.round(brightCells / 2.5);
+}
+
+function closeCardScanner() {
+  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  document.getElementById('card-scanner-overlay')?.remove();
 }
 
 function confirmQuit(sessionId, playerId) {
