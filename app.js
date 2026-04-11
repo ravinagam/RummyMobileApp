@@ -1226,7 +1226,7 @@ function renderGame(params) {
         const hasRejoined = !isNew && rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
         const isNoDrop   = !isOut && p.total >= noDropThreshold;
-        const remaining  = isOut ? '—' : Math.max(0, targetScore - p.total);
+        const remaining  = isOut ? '—' : Math.max(0, targetScore - p.total - 1);
         // Row class: OUT > NoDrop+Dealer(green) > NoDrop(red) > Dealer(green) > normal
         const rowClass   = isOut ? 'rank-out'
                          : (isNoDrop && isDealer) ? 'rank-dealer'
@@ -1242,7 +1242,7 @@ function renderGame(params) {
         const actionBtn = isActive && isOut
           ? `<button class="btn btn-sm btn-outline" onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
           : isActive && !isOut
-          ? `<button class="btn btn-sm btn-outline" onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
+          ? `<button class="btn btn-sm" style="background:#fef08a;color:#854d0e;border:1.5px solid #eab308" onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
           : '';
         return `
           <div class="rank-item ${rowClass}" style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;gap:0;padding:6px 10px">
@@ -1283,9 +1283,9 @@ function renderGame(params) {
     <div style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 12px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);margin-top:8px">
       <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span> New Player</span>
       <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px">R</span> Rejoined</span>
-      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#dcfce7;color:#15803d;border-color:#86efac">ND</span> No Drop</span>
+      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fee2e2;color:var(--danger);border-color:#fca5a5">ND</span> No Drop</span>
       <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px">OUT</span> Knocked Out</span>
-      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fef9c3;color:#854d0e;border-color:#fde047">Q</span> Quit</span>
+      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fef08a;color:#854d0e;border-color:#eab308">Q</span> Quit</span>
     </div>`;
 
   setContent(`

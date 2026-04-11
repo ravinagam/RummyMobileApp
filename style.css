@@ -544,13 +544,13 @@ tr.row-nodrop td.sticky {
 }
 .score-table tbody tr:last-child td { border-bottom: none; }
 .score-table thead th {
-  background: var(--bg);
+  background: #4f46e5;
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #fff;
   text-transform: uppercase;
   letter-spacing: .4px;
-  border-bottom: 2px solid var(--border);
+  border-bottom: 2px solid #4338ca;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -571,7 +571,7 @@ tr.row-nodrop td.sticky {
   border-right: 2px solid var(--border);
 }
 .score-table thead .sticky {
-  background: var(--bg);
+  background: #4f46e5;
   z-index: 4;
 }
 
@@ -587,9 +587,9 @@ tr.row-nodrop td.sticky {
   z-index: 3;
 }
 .score-table thead .total-col {
-  color: var(--primary-dark);
+  color: #fff;
   z-index: 4;
-  background: var(--bg) !important;
+  background: #4f46e5 !important;
 }
 
 /* Editable score cells */
