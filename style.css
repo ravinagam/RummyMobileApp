@@ -494,6 +494,9 @@ tr.row-out td.player-col {
   color: var(--danger);
   font-weight: 600;
 }
+tr.row-out td.total-col {
+  background: #fde8e8 !important;
+}
 tr.row-nodrop td {
   background: rgba(220,38,38,0.08) !important;
   color: var(--danger);
@@ -502,6 +505,9 @@ tr.row-nodrop td.player-col {
   background: rgba(220,38,38,0.08) !important;
   color: var(--danger);
   font-weight: 600;
+}
+tr.row-nodrop td.total-col {
+  background: #fde8e8 !important;
 }
 
 /* ---- Score table ---- */
@@ -558,16 +564,21 @@ tr.row-nodrop td.player-col {
   z-index: 4;
 }
 
-/* Total column */
+/* Total column — sticky on the right */
 .total-col {
   font-weight: 700;
   color: var(--primary);
-  background: var(--primary-light) !important;
+  background: #eef2ff !important;
   border-left: 2px solid var(--border);
   font-size: 12px;
+  position: sticky;
+  right: 0;
+  z-index: 3;
 }
 .score-table thead .total-col {
   color: var(--primary-dark);
+  z-index: 4;
+  background: var(--bg) !important;
 }
 
 /* Editable score cells */

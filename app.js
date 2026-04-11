@@ -1821,8 +1821,9 @@ function confirmEndGame(sessionId) {
           ${isOut ? `<span class="badge badge-out" style="font-size:11px">OUT</span>` : ''}
           ${isWinner ? `<span class="badge badge-winner" style="font-size:11px">🏆</span>` : ''}
         </div>
-        <input type="number" class="input money-input" data-player="${p.id}"
-               value="${defaultAmt}" placeholder="0" style="text-align:right;direction:ltr">
+        <input type="text" inputmode="numeric" class="input money-input" data-player="${p.id}"
+               value="${defaultAmt}" placeholder="0" style="text-align:right"
+               onfocus="this.setSelectionRange(this.value.length,this.value.length)">
       </div>`;
   }).join('');
 
