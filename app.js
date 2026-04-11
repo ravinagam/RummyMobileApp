@@ -525,7 +525,7 @@ function setContent(html) {
 }
 
 function setTitle(title) {
-  document.getElementById('page-title').textContent = title;
+  document.getElementById('page-title').innerHTML = title;
 }
 
 function showBack(show, href) {
@@ -534,9 +534,12 @@ function showBack(show, href) {
   btn._href = href || '/';
 }
 
-function showModal(html) {
+function showModal(html, alignTop = false) {
   document.getElementById('modal').innerHTML = html;
-  document.getElementById('modal-overlay').classList.remove('hidden');
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.style.alignItems = alignTop ? 'flex-start' : '';
+  overlay.style.paddingTop = alignTop ? '16px' : '';
   // Focus first input after render
   setTimeout(() => {
     const first = document.querySelector('#modal input');
@@ -847,7 +850,7 @@ function renderHome() {
       ${activeHtml}
       <button class="btn btn-primary btn-block" style="margin-bottom:6px" onclick="Router.navigate('/setup')">+ New Game</button>
       <div style="display:flex;gap:8px;margin-bottom:0">
-        <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/players')">👥 Players</button>
+        <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/players')">👥 Register Players</button>
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/rules')">Rules</button>
       </div>
       <!-- AdSense Banner -->
@@ -1165,7 +1168,7 @@ function renderGame(params) {
   const ranked   = getRankedPlayers(session);
   const totals   = getPlayerTotals(session);
 
-  setTitle(isActive ? 'Game' : 'Game Summary');
+  setTitle(isActive ? '&#9824;&#9829; Rummy Score Board &#9830;&#9827;' : '&#9824;&#9829; Game Summary &#9830;&#9827;');
   // Back goes to /history if accessed from history, else home
   const fromHistory = window.location.hash.startsWith('#/history');
   showBack(true, fromHistory ? '/history' : '/');
@@ -1938,7 +1941,7 @@ function showAddPlayerToGameModal(sessionId) {
                value="${suggestedScore}" min="0">
       </div>
     </div>
-  `);
+  `, true);
 }
 
 function confirmAddPlayerToGame(sessionId) {

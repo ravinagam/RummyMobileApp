@@ -64,14 +64,14 @@ a      { color: inherit; text-decoration: none; }
   z-index: 100;
   height: calc(var(--header-h) + var(--safe-top));
   padding-top: var(--safe-top);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, #e63946 0%, #f4a261 20%, #2a9d8f 40%, #457b9d 60%, #a8dadc 80%, #6a4c93 100%);
+  border-bottom: none;
   display: flex;
   align-items: center;
   padding-left: 8px;
   padding-right: 8px;
   gap: 4px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .app-header h1 {
@@ -79,8 +79,9 @@ a      { color: inherit; text-decoration: none; }
   text-align: center;
   font-size: 17px;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
   letter-spacing: -0.3px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 #page-content {
@@ -146,11 +147,11 @@ a      { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: #fff;
   flex-shrink: 0;
   transition: background .15s, color .15s;
 }
-.btn-icon:hover  { background: var(--bg); color: var(--text); }
+.btn-icon:hover  { background: rgba(255,255,255,0.2); color: #fff; }
 .btn-icon[hidden] { display: none; }
 
 .btn-remove {
