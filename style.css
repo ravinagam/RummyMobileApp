@@ -885,9 +885,14 @@ tr.row-nodrop td.sticky {
 .drop-score-label {
   font-size: 12px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #1d4ed8;
   text-transform: uppercase;
   letter-spacing: .4px;
+}
+
+.form-section .form-label {
+  color: #1d4ed8;
+  font-weight: 700;
 }
 
 /* ---- D/M/F quick-fill buttons (add round modal) ---- */

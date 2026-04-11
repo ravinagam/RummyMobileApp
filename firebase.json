@@ -10,6 +10,9 @@
       "*.docx",
       "*.jpg",
       "*.keystore",
+      "*.aab",
+      "*.apk",
+      "*.idsig",
       "render.yaml",
       ".git",
       "gradlew",
@@ -18,9 +21,12 @@
       "gradle.properties",
       "settings.gradle",
       "twa-manifest.json",
+      "manifest-checksum.txt",
       "gradle/**",
       "app/**",
-      "node_modules/**"
+      "build/**",
+      "node_modules/**",
+      "~$*"
     ],
     "rewrites": [
       {
