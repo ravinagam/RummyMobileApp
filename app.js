@@ -1344,7 +1344,6 @@ function buildScoreTable(session, isActive) {
       <tr class="${isOut ? 'row-out' : isNoDrop ? 'row-nodrop' : ''}">
         <td class="player-col sticky">${nameLabel}</td>
         ${scoreCells}
-        <td class="total-col ${isOut ? 'total-out' : ''}">${playerTotal}</td>
       </tr>`;
   }).join('');
 
@@ -1354,7 +1353,6 @@ function buildScoreTable(session, isActive) {
         <tr>
           <th class="player-col sticky">Player</th>
           ${headerCells}
-          <th class="total-col">Total</th>
         </tr>
       </thead>
       <tbody>${bodyRows}</tbody>
