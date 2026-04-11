@@ -606,7 +606,7 @@ function showToast(msg, type = 'info') {
    ============================================================ */
 function renderSignIn() {
   document.getElementById('btn-history').hidden = true;
-  setTitle('Rummy Score Board');
+  setTitle('<span style="color:#111">♠</span><span style="color:#dc2626">♥</span> Rummy Score Board <span style="color:#dc2626">♦</span><span style="color:#111">♣</span>');
   showBack(false);
   setContent(`
     <div style="max-width:360px;margin:40px auto 0">
@@ -793,7 +793,7 @@ function friendlyAuthError(code) {
 }
 
 function renderHome() {
-  setTitle('Rummy Score Board');
+  setTitle('<span style="color:#111">♠</span><span style="color:#dc2626">♥</span> Rummy Score Board <span style="color:#dc2626">♦</span><span style="color:#111">♣</span>');
   showBack(false);
 
   const sessions  = Store.getSessions();
@@ -1168,7 +1168,8 @@ function renderGame(params) {
   const ranked   = getRankedPlayers(session);
   const totals   = getPlayerTotals(session);
 
-  setTitle(isActive ? '&#9824;&#9829; Rummy Score Board &#9830;&#9827;' : '&#9824;&#9829; Game Summary &#9830;&#9827;');
+  const cardTitle = '<span style="color:#111">♠</span><span style="color:#dc2626">♥</span> Rummy Score Board <span style="color:#dc2626">♦</span><span style="color:#111">♣</span>';
+  setTitle(isActive ? cardTitle : '<span style="color:#111">♠</span><span style="color:#dc2626">♥</span> Game Summary <span style="color:#dc2626">♦</span><span style="color:#111">♣</span>');
   // Back goes to /history if accessed from history, else home
   const fromHistory = window.location.hash.startsWith('#/history');
   showBack(true, fromHistory ? '/history' : '/');
@@ -1245,7 +1246,7 @@ function renderGame(params) {
         const actionBtn = isActive && isOut
           ? `<button class="btn btn-sm" style="background:#16a34a;color:#fff;border:1.5px solid #15803d" onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
           : isActive && !isOut
-          ? `<button class="btn btn-sm" style="background:#fef08a;color:#854d0e;border:1.5px solid #eab308" onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
+          ? `<button class="btn btn-sm" style="background:#fef08a;color:#854d0e;border:1.5px solid #eab308;font-size:11px" onclick="quitPlayer('${session.id}','${p.id}')">Quit</button>`
           : '';
         return `
           <div class="rank-item ${rowClass}" style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;gap:0;padding:6px 10px">
@@ -1544,6 +1545,11 @@ function showAddRoundModal(sessionId) {
     <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
       <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
       <button class="btn btn-primary" style="flex:1" onclick="submitRound(null, '${sessionId}')">Save Round</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:6px 16px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted)">
+      <span><button class="btn-quick" style="pointer-events:none;font-size:11px;padding:2px 6px">D</button> Drop</span>
+      <span><button class="btn-quick btn-quick-m" style="pointer-events:none;font-size:11px;padding:2px 6px">M</button> Mid Drop</span>
+      <span><button class="btn-quick btn-quick-f" style="pointer-events:none;font-size:11px;padding:2px 6px">F</button> Full Count</span>
     </div>
     <div class="modal-body">
       <form id="round-form" onsubmit="submitRound(event, '${sessionId}')">
