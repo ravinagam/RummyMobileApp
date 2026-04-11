@@ -452,6 +452,10 @@ input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none
   flex: 1;
   font-weight: 600;
   font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .rank-score {
   font-size: 18px;
@@ -497,6 +501,9 @@ tr.row-out td.player-col {
 tr.row-out td.total-col {
   background: #fde8e8 !important;
 }
+tr.row-out td.sticky {
+  background: #fde8e8 !important;
+}
 tr.row-nodrop td {
   background: rgba(220,38,38,0.08) !important;
   color: var(--danger);
@@ -507,6 +514,9 @@ tr.row-nodrop td.player-col {
   font-weight: 600;
 }
 tr.row-nodrop td.total-col {
+  background: #fde8e8 !important;
+}
+tr.row-nodrop td.sticky {
   background: #fde8e8 !important;
 }
 
@@ -552,11 +562,12 @@ tr.row-nodrop td.total-col {
   left: 0;
   z-index: 3;
   text-align: left;
-  background: var(--surface);
+  background: #ffffff;
   min-width: 90px;
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   border-right: 2px solid var(--border);
 }
 .score-table thead .sticky {

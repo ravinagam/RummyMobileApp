@@ -1213,35 +1213,44 @@ function renderGame(params) {
   const orderedPlayers = session.players.map(p => ({ ...p, total: totals[p.id] ?? 0 }));
   const rankHtml = `
     <div class="rank-list" style="margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;font-size:13px;font-weight:700;color:#fff;background:#4f46e5;padding:6px 10px;border-radius:8px 8px 0 0;gap:0">
+        <span style="text-align:center">Player</span>
+        <span style="text-align:center;border-left:1px solid rgba(255,255,255,0.4)"></span>
+        <span style="text-align:center;border-left:1px solid rgba(255,255,255,0.4)">Total</span>
+        <span style="text-align:center;border-left:1px solid rgba(255,255,255,0.4)">Remaining</span>
+        <span style="border-left:1px solid rgba(255,255,255,0.4)"></span>
+      </div>
       ${orderedPlayers.map((p, i) => {
         const isOut      = knockedOut.includes(p.id);
         const isNew      = newPlayers.includes(p.id);
         const hasRejoined = !isNew && rejoined.includes(p.id);
         const isDealer   = currentDealer && p.id === currentDealer.id;
         const isNoDrop   = !isOut && p.total >= noDropThreshold;
+        const remaining  = isOut ? '—' : Math.max(0, targetScore - p.total);
         // Row class: OUT > NoDrop+Dealer(green) > NoDrop(red) > Dealer(green) > normal
         const rowClass   = isOut ? 'rank-out'
                          : (isNoDrop && isDealer) ? 'rank-dealer'
                          : isNoDrop ? 'rank-danger'
                          : isDealer ? 'rank-dealer'
                          : '';
+        const badge = isNoDrop
+          ? `<span class="badge badge-out" style="${isDealer ? 'background:#dcfce7;color:#15803d;border-color:#86efac' : 'background:#fee2e2;color:var(--danger);border-color:#fca5a5'}">ND</span>`
+          : isOut ? `<span class="badge badge-out">OUT</span>`
+          : isNew ? `<span class="badge badge-rejoin" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>`
+          : hasRejoined ? `<span class="badge badge-rejoin">R</span>`
+          : '';
+        const actionBtn = isActive && isOut
+          ? `<button class="btn btn-sm btn-outline" onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
+          : isActive && !isOut
+          ? `<button class="btn btn-sm btn-outline" onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
+          : '';
         return `
-          <div class="rank-item ${rowClass}">
-            <span class="rank-pos">${i + 1}</span>
-            <span class="rank-name">${p.name}</span>
-            ${isNoDrop ? `<span class="badge badge-out" style="${isDealer ? 'background:#dcfce7;color:#15803d;border-color:#86efac' : 'background:#fee2e2;color:var(--danger);border-color:#fca5a5'}">ND</span>` : ''}
-            ${isOut       ? `<span class="badge badge-out">OUT</span>` : ''}
-            ${isNew       ? `<span class="badge badge-rejoin" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc">N</span>` : ''}
-            ${hasRejoined ? `<span class="badge badge-rejoin">R</span>` : ''}
-            <span class="rank-score">${p.total}</span>
-            ${isActive && isOut
-              ? `<button class="btn btn-sm btn-outline" style="margin-left:6px"
-                         onclick="rejoinPlayer('${session.id}','${p.id}')">Rejoin</button>`
-              : ''}
-            ${isActive && !isOut
-              ? `<button class="btn btn-sm btn-outline" style="margin-left:6px"
-                         onclick="quitPlayer('${session.id}','${p.id}')">Q</button>`
-              : ''}
+          <div class="rank-item ${rowClass}" style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;gap:0;padding:6px 10px">
+            <span class="rank-name" style="display:flex;align-items:center;gap:6px"><span class="rank-pos">${i + 1}</span>${p.name}</span>
+            <span style="text-align:right;border-left:1px solid var(--border);padding-right:4px">${badge}</span>
+            <span class="rank-score" style="text-align:right;border-left:1px solid var(--border);padding-right:4px">${p.total}</span>
+            <span style="text-align:right;border-left:1px solid var(--border);padding-right:4px;font-size:18px;color:${isOut ? 'var(--text-muted)' : 'var(--primary)'};font-weight:800;font-variant-numeric:tabular-nums">${remaining}</span>
+            <span style="text-align:right;border-left:1px solid var(--border);padding-left:4px">${actionBtn}</span>
           </div>`;
       }).join('')}
     </div>`;
