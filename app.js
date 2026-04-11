@@ -1296,7 +1296,9 @@ function buildScoreTable(session, isActive) {
   const rejoined   = Object.keys(session.adjustments || {});
   const newPlayers = session.newPlayers || [];
 
-  const headerCells = session.rounds
+  const displayRounds = session.rounds.slice().reverse();
+
+  const headerCells = displayRounds
     .map(r => `<th>R${r.number}${isActive
       ? `<button class="btn-round-edit" title="Edit round" onclick="showEditRoundModal('${session.id}','${r.id}')">✎</button>`
       : ''}</th>`)
@@ -1314,7 +1316,7 @@ function buildScoreTable(session, isActive) {
     const playerTotal = totals[player.id];
     const isNoDrop    = !isOut && playerTotal >= noDropThreshold;
 
-    const scoreCells = session.rounds.map(round => {
+    const scoreCells = displayRounds.map(round => {
       const score = round.scores[player.id] ?? 0;
       const zeroStyle = score === 0 ? 'background:#dcfce7;color:#15803d;font-weight:800;border-radius:4px;' : '';
       if (isActive) {

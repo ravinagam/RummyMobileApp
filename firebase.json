@@ -4,10 +4,23 @@
     "ignore": [
       "firebase.json",
       ".firebaserc",
+      ".firebaseignore",
       ".claude",
+      ".firebase",
       "*.docx",
+      "*.jpg",
+      "*.keystore",
       "render.yaml",
-      ".git"
+      ".git",
+      "gradlew",
+      "gradlew.bat",
+      "build.gradle",
+      "gradle.properties",
+      "settings.gradle",
+      "twa-manifest.json",
+      "gradle/**",
+      "app/**",
+      "node_modules/**"
     ],
     "rewrites": [
       {
