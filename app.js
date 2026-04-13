@@ -551,7 +551,10 @@ const Router = {
    ============================================================ */
 
 function setContent(html) {
-  document.getElementById('page-content').innerHTML = html;
+  document.body.classList.remove('game-active');
+  const pc = document.getElementById('page-content');
+  pc.classList.remove('game-mode');
+  pc.innerHTML = html;
 }
 
 function setTitle(title) {
@@ -1299,19 +1302,6 @@ function renderGame(params) {
   /* Action buttons */
 
   const onlyOneActive = isActive && activePlayers.length <= 1;
-  const bottomActionsHtml = isActive ? `
-    <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface);position:sticky;bottom:0">
-      <button class="btn btn-sm btn-primary" style="flex:1" onclick="showAddPlayerToGameModal('${session.id}')">Add Player</button>
-      ${onlyOneActive
-        ? `<button class="btn" disabled style="flex:2;opacity:0.5;cursor:not-allowed;font-size:16px;padding:10px 0;background:#16a34a;color:#fff">Add Round</button>`
-        : `<button class="btn" style="flex:2;font-size:16px;padding:10px 0;background:#16a34a;color:#fff" onclick="showAddRoundModal('${session.id}')">Add Round</button>`
-      }
-      <button class="btn btn-sm btn-danger" style="flex:1" onclick="confirmEndGame('${session.id}')">End Game</button>
-    </div>` : `
-    <div class="game-actions">
-      <button class="btn btn-outline"
-              onclick="confirmDeleteSession('${session.id}')">Delete Game</button>
-    </div>`;
 
   const legendHtml = `
     <div style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 12px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);margin-top:8px">
@@ -1319,18 +1309,32 @@ function renderGame(params) {
       <span><span class="badge badge-rejoin" style="font-size:10px;padding:1px 5px;background:#dcfce7;color:#15803d;border-color:#86efac">R</span> Rejoined</span>
       <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fee2e2;color:var(--danger);border-color:#fca5a5">ND</span> No Drop</span>
       <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px">OUT</span> Knocked Out</span>
-      <span><span class="badge badge-out" style="font-size:10px;padding:1px 5px;background:#fef08a;color:#854d0e;border-color:#eab308">Q</span> Quit</span>
     </div>`;
 
   setContent(`
-    <div>
+    <div class="game-container">
       ${completedHtml}
-      ${rankHtml}
-      <div class="score-table-wrapper">${tableHtml}</div>
-      ${legendHtml}
-      ${bottomActionsHtml}
+      <div class="game-rank-section">${rankHtml}</div>
+      <div class="game-scroll-area">
+        <div class="score-table-wrapper">${tableHtml}</div>
+        ${legendHtml}
+      </div>
+      <div class="game-bottom-bar">${isActive ? `
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px">
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="showAddPlayerToGameModal('${session.id}')">Add Player</button>
+          ${onlyOneActive
+            ? `<button class="btn" disabled style="flex:2;opacity:0.5;cursor:not-allowed;font-size:16px;padding:10px 0;background:#16a34a;color:#fff">Add Round</button>`
+            : `<button class="btn" style="flex:2;font-size:16px;padding:10px 0;background:#16a34a;color:#fff" onclick="showAddRoundModal('${session.id}')">Add Round</button>`
+          }
+          <button class="btn btn-sm btn-danger" style="flex:1" onclick="confirmEndGame('${session.id}')">End Game</button>
+        </div>` : `
+        <div class="game-actions" style="padding:8px 12px">
+          <button class="btn btn-outline" onclick="confirmDeleteSession('${session.id}')">Delete Game</button>
+        </div>`}
+      </div>
     </div>
   `);
+  document.body.classList.add('game-active');
 }
 
 function buildScoreTable(session, isActive) {
@@ -1887,8 +1891,6 @@ function submitRound(e, sessionId) {
   if (newKO.length > 0) {
     const names = newKO.map(id => session.players.find(p => p.id === id)?.name).join(', ');
     showToast(`${names} reached the target and is OUT!`, 'warning');
-  } else {
-    showToast('Round saved!', 'success');
   }
 }
 
@@ -2693,7 +2695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-history').hidden = false;
     CloudSync.init();
     CloudSync.pull()
-      .then(synced => { if (synced) showToast('☁ Data synced', 'success'); })
+      .then(() => {})
       .catch(() => {})
       .finally(() => Router.init());
   });
