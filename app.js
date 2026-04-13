@@ -97,6 +97,8 @@ const CloudSync = {
   _docRef: null,
   _pushing: false,
   _pulled: false,   // block push until pull has completed at least once
+  _lastPush: 0,     // timestamp of last push, used to debounce own-write snapshots
+  _listener: null,  // Firestore onSnapshot unsubscribe handle
 
   init() {
     const configured = FIREBASE_CONFIG.apiKey &&
@@ -138,10 +140,40 @@ const CloudSync = {
   push() {
     if (!this._ready || this._pushing || !this._pulled) return;
     this._pushing = true;
+    this._lastPush = Date.now();
     Store._load();
     this._docRef.set(Store._cache)
       .catch(err => console.error('[CloudSync] push failed:', err))
       .finally(() => { this._pushing = false; });
+  },
+
+  /** Start real-time listener so remote changes auto-update this device. */
+  listen() {
+    if (!this._ready || this._listener) return;
+    this._listener = this._docRef.onSnapshot(snap => {
+      // Skip snapshots triggered by our own recent push (within 4 seconds)
+      if (Date.now() - this._lastPush < 4000) return;
+      if (!snap.exists) return;
+      const data = snap.data();
+      if (!data || !Array.isArray(data.sessions)) return;
+      localStorage.setItem(getStoreKey(), JSON.stringify(data));
+      Store._cache = null;
+      // Re-render game screen if user is currently viewing one
+      const match = window.location.hash.match(/^#\/game\/(.+)$/);
+      if (match) {
+        renderGame([match[1]]);
+      }
+    }, err => {
+      console.error('[CloudSync] listen failed:', err);
+    });
+  },
+
+  /** Stop real-time listener (e.g. on sign-out). */
+  stopListening() {
+    if (this._listener) {
+      this._listener();
+      this._listener = null;
+    }
   }
 };
 
@@ -762,7 +794,7 @@ function handleSignIn() {
     .then(() => {
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
-      CloudSync.pull().finally(() => Router.init());
+      CloudSync.pull().finally(() => { CloudSync.listen(); Router.init(); });
     })
     .catch(e => {
       errEl.textContent = friendlyAuthError(e.code);
@@ -789,7 +821,7 @@ function handleRegister() {
       hideModal();
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
-      CloudSync.pull().finally(() => Router.init());
+      CloudSync.pull().finally(() => { CloudSync.listen(); Router.init(); });
     })
     .catch(e => {
       errEl.textContent = friendlyAuthError(e.code);
@@ -800,6 +832,7 @@ function handleRegister() {
 function handleSignOut() {
   const storeKey = getStoreKey();
   Auth.signOut().then(() => {
+    CloudSync.stopListening();
     CloudSync._ready  = false;
     CloudSync._pulled = false;
     CloudSync._docRef = null;
@@ -1290,13 +1323,18 @@ function renderGame(params) {
             <span style="text-align:right;border-left:1px solid var(--border);padding-left:4px">${actionBtn}</span>
           </div>`;
       }).join('')}
+      ${isActive ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px 6px;font-size:12px;color:var(--text-muted)">
+        <span>🃏 Dealer: <strong style="color:#15803d">${currentDealer ? currentDealer.name : '—'}</strong></span>
+        <button onclick="showUpdateDealerModal('${session.id}')" style="font-size:11px;color:#6366f1;background:none;border:none;cursor:pointer;text-decoration:underline">Update Dealer</button>
+      </div>` : ''}
     </div>`;
 
   /* Score table */
   const tableHtml = session.rounds.length > 0
     ? buildScoreTable(session, isActive)
     : `<div class="empty-state" style="padding:32px">
-         <p>No rounds yet.<br>Tap <strong>+ Round</strong> to add the first!</p>
+         <p>No rounds yet.<br>Tap <strong>Add Round</strong> to add the first!</p>
        </div>`;
 
   /* Action buttons */
@@ -1892,6 +1930,55 @@ function submitRound(e, sessionId) {
     const names = newKO.map(id => session.players.find(p => p.id === id)?.name).join(', ');
     showToast(`${names} reached the target and is OUT!`, 'warning');
   }
+}
+
+function showUpdateDealerModal(sessionId) {
+  const session     = Store.getSession(sessionId);
+  if (!session) return;
+  const knockedOut  = session.knockedOut || [];
+  const activePlayers = session.players.filter(p => !knockedOut.includes(p.id));
+  const currentDealer = getCurrentDealer(session);
+
+  const options = activePlayers.map(p =>
+    `<option value="${p.id}" ${currentDealer && p.id === currentDealer.id ? 'selected' : ''}>${p.name}</option>`
+  ).join('');
+
+  showModal(`
+    <div class="modal-header">
+      <h2>Update Dealer</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:13px;color:var(--text-muted)">
+        Current dealer: <strong style="color:#15803d">${currentDealer ? currentDealer.name : '—'}</strong>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Select New Dealer</label>
+        <select id="new-dealer-select" class="input" style="width:100%">
+          ${options}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" style="flex:1" onclick="hideModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmUpdateDealer('${sessionId}')">Confirm</button>
+      </div>
+    </div>
+  `);
+}
+
+function confirmUpdateDealer(sessionId) {
+  const session  = Store.getSession(sessionId);
+  if (!session) return;
+  const playerId = document.getElementById('new-dealer-select')?.value;
+  if (!playerId) return;
+  const player   = session.players.find(p => p.id === playerId);
+  if (!player) return;
+
+  session.nextDealerId = playerId;
+  Store.saveSession(session);
+  hideModal();
+  renderGame([sessionId]);
+  showToast(`Dealer updated to ${player.name}`, 'success');
 }
 
 function confirmEndGame(sessionId) {
@@ -2697,13 +2784,19 @@ document.addEventListener('DOMContentLoaded', () => {
     CloudSync.pull()
       .then(() => {})
       .catch(() => {})
-      .finally(() => Router.init());
+      .finally(() => { CloudSync.listen(); Router.init(); });
   });
 
   /* Register service worker for offline support / PWA */
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(err => {
       console.warn('[SW] Registration failed:', err);
+    });
+    // When a new SW version activates it posts SW_UPDATED — reload to pick up fresh files
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data && e.data.type === 'SW_UPDATED') {
+        window.location.reload();
+      }
     });
   }
 });
