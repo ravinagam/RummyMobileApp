@@ -1324,9 +1324,10 @@ function renderGame(params) {
           </div>`;
       }).join('')}
       ${isActive ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px 6px;font-size:12px;color:var(--text-muted)">
-        <span>🃏 Dealer: <strong style="color:#15803d">${currentDealer ? currentDealer.name : '—'}</strong></span>
-        <button onclick="showUpdateDealerModal('${session.id}')" style="font-size:11px;color:#6366f1;background:none;border:none;cursor:pointer;text-decoration:underline">Update Dealer</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px 6px;font-size:12px;gap:6px">
+        <button id="btn-read-scores" onclick="readOutScores('${session.id}')" style="font-size:11px;color:#6366f1;background:none;border:1px solid #6366f1;border-radius:6px;cursor:pointer;padding:2px 8px;white-space:nowrap">🔊 Read Scores</button>
+        <span style="color:var(--text-muted);flex:1;text-align:center;white-space:nowrap">Dealer <strong style="color:#15803d">${currentDealer ? currentDealer.name : '—'}</strong></span>
+        <button onclick="showUpdateDealerModal('${session.id}')" style="font-size:11px;color:#6366f1;background:none;border:none;cursor:pointer;text-decoration:underline;white-space:nowrap">Update Dealer</button>
       </div>` : ''}
     </div>`;
 
@@ -1930,6 +1931,39 @@ function submitRound(e, sessionId) {
     const names = newKO.map(id => session.players.find(p => p.id === id)?.name).join(', ');
     showToast(`${names} reached the target and is OUT!`, 'warning');
   }
+}
+
+function readOutScores(sessionId) {
+  const btn = document.getElementById('btn-read-scores');
+
+  // If already speaking, stop
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    if (btn) btn.textContent = '🔊 Read Scores';
+    return;
+  }
+
+  const session = Store.getSession(sessionId);
+  if (!session) return;
+
+  // Use the same totals calculation as the rank table (includes adjustments)
+  const totals     = getPlayerTotals(session);
+  const knockedOut = session.knockedOut || [];
+  // Speak in the same order as the rank table (session.players order)
+  const parts = session.players.map(p => {
+    const total = totals[p.id] || 0;
+    const isOut = knockedOut.includes(p.id);
+    return `${p.name} ${total}${isOut ? ', knocked out' : ''}`;
+  });
+
+  const text = parts.join('. ');
+  const utt  = new SpeechSynthesisUtterance(text);
+  utt.rate   = 0.9;
+  utt.onend  = () => { if (btn) btn.textContent = '🔊 Read Scores'; };
+  utt.onerror = () => { if (btn) btn.textContent = '🔊 Read Scores'; };
+
+  if (btn) btn.textContent = '⏹ Stop';
+  window.speechSynthesis.speak(utt);
 }
 
 function showUpdateDealerModal(sessionId) {
