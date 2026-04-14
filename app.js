@@ -178,6 +178,50 @@ const CloudSync = {
 };
 
 /* ============================================================
+   INACTIVITY TIMER — auto-logout after 1 hour of no interaction
+   ============================================================ */
+
+const InactivityTimer = {
+  _timer: null,
+  _LIMIT: 60 * 60 * 1000, // 1 hour
+
+  _activity() {
+    sessionStorage.setItem('lastActivity', Date.now());
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this._logout(), this._LIMIT);
+  },
+
+  _logout() {
+    if (!Auth.uid) return;
+    handleSignOut();
+    showToast('Logged out due to inactivity.', 'warning');
+  },
+
+  start() {
+    // Reset timer on any user interaction
+    ['click', 'touchstart', 'keydown', 'scroll'].forEach(ev =>
+      document.addEventListener(ev, () => this._activity(), { passive: true })
+    );
+    // When returning from background, check if 1 hour has already passed
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !Auth.uid) return;
+      const last = parseInt(sessionStorage.getItem('lastActivity') || '0', 10);
+      if (last && Date.now() - last > this._LIMIT) {
+        this._logout();
+      } else {
+        this._activity();
+      }
+    });
+    this._activity();
+  },
+
+  stop() {
+    clearTimeout(this._timer);
+    sessionStorage.removeItem('lastActivity');
+  }
+};
+
+/* ============================================================
    UTILITIES
    ============================================================ */
 
@@ -794,7 +838,7 @@ function handleSignIn() {
     .then(() => {
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
-      CloudSync.pull().finally(() => { CloudSync.listen(); Router.init(); });
+      CloudSync.pull().finally(() => { CloudSync.listen(); InactivityTimer.start(); Router.init(); });
     })
     .catch(e => {
       errEl.textContent = friendlyAuthError(e.code);
@@ -821,7 +865,7 @@ function handleRegister() {
       hideModal();
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
-      CloudSync.pull().finally(() => { CloudSync.listen(); Router.init(); });
+      CloudSync.pull().finally(() => { CloudSync.listen(); InactivityTimer.start(); Router.init(); });
     })
     .catch(e => {
       errEl.textContent = friendlyAuthError(e.code);
@@ -831,6 +875,7 @@ function handleRegister() {
 
 function handleSignOut() {
   const storeKey = getStoreKey();
+  InactivityTimer.stop();
   Auth.signOut().then(() => {
     CloudSync.stopListening();
     CloudSync._ready  = false;
@@ -849,13 +894,14 @@ function friendlyAuthError(code) {
     'auth/invalid-email':         'Invalid username.',
     'auth/email-already-in-use':  'An account with this username already exists.',
     'auth/weak-password':         'Password must be at least 6 characters.',
-    'auth/invalid-credential':    'Incorrect username or password.',
-    'auth/too-many-requests':     'Too many attempts. Try again later.',
-    'auth/operation-not-allowed': 'Email/Password sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.',
-    'auth/network-request-failed':'Network error. Check your internet connection.',
-    'auth/configuration-not-found':'Firebase Auth is not configured. Enable Email/Password in Firebase Console.',
+    'auth/invalid-credential':         'Incorrect username or password.',
+    'auth/invalid-login-credentials':  'Incorrect username or password.',
+    'auth/too-many-requests':          'Too many failed attempts. Please try again later.',
+    'auth/operation-not-allowed':      'Sign-in is not enabled. Contact the app admin.',
+    'auth/network-request-failed':     'Network error. Check your internet connection.',
+    'auth/configuration-not-found':    'Sign-in is not configured. Contact the app admin.',
   };
-  return map[code] || `Error (${code}). Please try again.`;
+  return map[code] || 'Incorrect username or password. Please try again.';
 }
 
 function renderHome() {
@@ -2487,8 +2533,7 @@ function confirmAddPlayerToGame(sessionId) {
   session.joinedRound = session.joinedRound || {};
   session.joinedRound[player.id] = session.rounds.length;
 
-  // New player deals next (they're positioned just before the current dealer)
-  session.nextDealerId = player.id;
+  // Keep the existing dealer — new player is NOT the dealer
 
   // Fill all previous rounds with drop score
   const dropScore = (session.rules.dropScore || 20);
