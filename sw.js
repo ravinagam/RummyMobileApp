@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'rummy-v5';
+const CACHE = 'rummy-v6';
 const SHELL = ['/', '/index.html', '/style.css', '/app.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-192.png', '/icon-maskable-512.png', '/manifest.json', '/screenshot-home.png', '/screenshot-game.png'];
 
 // Files that must always be fresh — use network-first for these
@@ -31,9 +31,9 @@ self.addEventListener('fetch', e => {
   const pathname = new URL(e.request.url).pathname;
 
   if (APP_SHELL.includes(pathname)) {
-    // Network-first: always try to get the latest version, fall back to cache offline
+    // Network-first: bypass HTTP cache to always get the latest version
     e.respondWith(
-      fetch(e.request)
+      fetch(e.request, { cache: 'no-store' })
         .then(resp => {
           if (resp.ok) caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
           return resp;

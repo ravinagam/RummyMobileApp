@@ -982,18 +982,20 @@ async function handleUpdateDisplayName() {
     const app  = firebase.apps[0];
     const user = firebase.auth(app).currentUser;
     await user.updateProfile({ displayName });
-    // Also save to Firestore so it persists
-    await firebase.firestore(app).collection('recovery').doc(username).set({ displayName }, { merge: true });
     Auth._user = firebase.auth(app).currentUser;
     updateUserBar();
     showToast('Display name updated!', 'success');
+    // Also save to Firestore (best-effort, don't block on failure)
+    firebase.firestore(app).collection('recovery').doc(username)
+      .set({ displayName }, { merge: true })
+      .catch(e => console.warn('[Profile] Firestore displayName save failed:', e));
   } catch (err) {
     errEl.textContent = 'Failed to update display name. Try again.';
     errEl.style.display = 'block';
   }
 }
 
-async function handleUpdateEmail() {
+function handleUpdateEmail() {
   const username = displayUsername(Auth.email || '');
   const email    = document.getElementById('profile-email').value.trim();
   const errEl    = document.getElementById('profile-email-error');
@@ -1002,14 +1004,11 @@ async function handleUpdateEmail() {
   if (!email) { errEl.textContent = 'Enter an email address.'; errEl.style.display = 'block'; return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Enter a valid email address.'; errEl.style.display = 'block'; return; }
 
-  try {
-    const app = firebase.apps[0];
-    await firebase.firestore(app).collection('recovery').doc(username).set({ recoveryEmail: email }, { merge: true });
-    showToast('Email updated successfully!', 'success');
-  } catch (err) {
-    errEl.textContent = 'Failed to update email. Try again.';
-    errEl.style.display = 'block';
-  }
+  const app = firebase.apps[0];
+  firebase.firestore(app).collection('recovery').doc(username)
+    .set({ recoveryEmail: email }, { merge: true })
+    .catch(e => console.warn('[Profile] Firestore email save failed:', e));
+  showToast('Email updated successfully!', 'success');
 }
 
 async function handleChangePassword() {
@@ -1115,7 +1114,17 @@ function renderHome() {
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/players')">👥 Register Players</button>
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/rules')">Rules</button>
       </div>
-      <div style="margin-top:10px;text-align:center;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
+      <!-- AdSense Banner -->
+      <div style="margin:12px 0;text-align:center;min-height:60px">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-9537276736960487"
+             data-ad-slot="auto"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
+      <div style="margin-bottom:16px;text-align:center;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
         <p style="font-size:12px;color:#92400e;margin:0 0 6px">Enjoying the app? Support the developer!</p>
         <div style="display:flex;gap:8px;justify-content:center">
           <div style="text-align:center">
@@ -1127,16 +1136,6 @@ function renderHome() {
             <div style="font-size:10px;color:#92400e;margin-top:3px">International</div>
           </div>
         </div>
-      </div>
-      <!-- AdSense Banner -->
-      <div style="margin:12px 0;text-align:center;min-height:60px">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-9537276736960487"
-             data-ad-slot="auto"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
       </div>
       ${historyHtml}
       ${emptyHtml}
@@ -3009,19 +3008,63 @@ function renderHistory(params) {
    ============================================================ */
 
 function openKofi() {
-  window.location.href = 'https://ko-fi.com/ravikiran0209';
+  showModal(`
+    <div class="modal-header">
+      <h2>☕ Buy me a Coffee</h2>
+      <button class="btn-icon" style="color:var(--text-muted)" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;text-align:center">
+      <p style="font-size:14px;color:var(--text);margin-bottom:8px">You will be taken to Ko-fi to complete the payment.</p>
+      <p style="font-size:13px;color:var(--text-muted)">Press the <strong>back button</strong> after payment to return to the app.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="hideModal();window.location.href='https://ko-fi.com/ravikiran0209'">Continue to Ko-fi</button>
+    </div>
+  `);
 }
 
 function buyMeChai() {
-  const upiId   = 'ravi.nagam.kiran-2@okaxis';
-  const name    = 'Rummy Score Board';
-  const note    = 'Buy me a chai';
-  const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&tn=${encodeURIComponent(note)}&cu=INR`;
-
-  // Try UPI deep link (works on Android with any UPI app)
-  const a = document.createElement('a');
-  a.href = upiLink;
-  a.click();
+  const upiId = 'ravi.nagam.kiran-2@okaxis';
+  showModal(`
+    <div class="modal-header">
+      <h2>☕ Buy me a Chai</h2>
+      <button class="btn-icon" style="color:var(--text-muted)" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;text-align:center">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Open Google Pay, PhonePe, or any UPI app and pay to:</p>
+      <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span style="font-size:16px;font-weight:700;color:var(--text);word-break:break-all">${upiId}</span>
+        <button onclick="navigator.clipboard.writeText('${upiId}').then(()=>showToast('UPI ID copied!','success'))" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0">Copy</button>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Any amount is appreciated 🙏</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left">
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px">
+          <p style="font-size:11px;font-weight:700;color:#15803d;margin-bottom:6px">Google Pay</p>
+          <ol style="font-size:11px;color:#166534;margin:0;padding-left:14px;line-height:1.8">
+            <li>Open <strong>Google Pay</strong></li>
+            <li>New Payment → UPI ID</li>
+            <li>Paste UPI ID</li>
+            <li>Verify, enter amount</li>
+            <li>Tap <strong>Pay</strong></li>
+          </ol>
+        </div>
+        <div style="background:#f0f0ff;border:1px solid #a5b4fc;border-radius:10px;padding:10px">
+          <p style="font-size:11px;font-weight:700;color:#4f46e5;margin-bottom:6px">PhonePe</p>
+          <ol style="font-size:11px;color:#3730a3;margin:0;padding-left:14px;line-height:1.8">
+            <li>Open <strong>PhonePe</strong></li>
+            <li>Send Money → UPI ID</li>
+            <li>Paste UPI ID</li>
+            <li>Verify, enter amount</li>
+            <li>Tap <strong>Pay</strong></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Close</button>
+    </div>
+  `);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

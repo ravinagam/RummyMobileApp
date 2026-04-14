@@ -30,6 +30,10 @@
     ],
     "rewrites": [
       {
+        "source": "/.well-known/**",
+        "destination": "/.well-known/assetlinks.json"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
@@ -42,9 +46,21 @@
         ]
       },
       {
-        "source": "**/*.@(js|css)",
+        "source": "app.js",
         "headers": [
-          { "key": "Cache-Control", "value": "max-age=86400" }
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "style.css",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
         ]
       }
     ]
