@@ -752,7 +752,13 @@ function showRegisterModal() {
     <div class="modal-body">
       <div class="form-group">
         <label class="form-label">Username</label>
-        <input type="text" class="input" id="reg-username" placeholder="e.g. ravi" autocorrect="off" autocapitalize="none">
+        <input type="text" class="input" id="reg-username" placeholder="e.g. ravi" autocorrect="off" autocapitalize="none"
+          oninput="const d=document.getElementById('reg-displayname');if(!d._edited)d.value=this.value">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Display Name <span style="font-weight:normal;color:var(--text-muted)">(shown to others)</span></label>
+        <input type="text" class="input" id="reg-displayname" placeholder="e.g. Ravi Kumar" autocomplete="name"
+          oninput="this._edited=true">
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
@@ -838,7 +844,7 @@ function handleSignIn() {
     .then(() => {
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
-      CloudSync.pull().finally(() => { CloudSync.listen(); InactivityTimer.start(); Router.init(); });
+      CloudSync.pull().finally(() => { CloudSync.listen(); InactivityTimer.start(); updateUserBar(); Router.init(); });
     })
     .catch(e => {
       errEl.textContent = friendlyAuthError(e.code);
@@ -848,6 +854,7 @@ function handleSignIn() {
 
 function handleRegister() {
   const username      = document.getElementById('reg-username').value.trim();
+  const displayName   = document.getElementById('reg-displayname').value.trim() || username;
   const password      = document.getElementById('reg-password').value;
   const recoveryEmail = document.getElementById('reg-recovery').value.trim();
   const errEl         = document.getElementById('reg-error');
@@ -856,21 +863,36 @@ function handleRegister() {
   if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
   Auth.register(toFirebaseEmail(username), password)
     .then(() => {
-      // Save recovery email to Firestore for password reset
-      if (recoveryEmail) {
-        const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
-        firebase.firestore(app).collection('recovery').doc(username.toLowerCase())
-          .set({ recoveryEmail });
-      }
+      const app  = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+      const user = firebase.auth(app).currentUser;
+      const saves = [user.updateProfile({ displayName })];
+      const firestoreData = { displayName, recoveryEmail: recoveryEmail || '' };
+      saves.push(firebase.firestore(app).collection('recovery').doc(username.toLowerCase()).set(firestoreData));
+      return Promise.all(saves);
+    })
+    .then(() => {
       hideModal();
       document.getElementById('btn-history').hidden = false;
       CloudSync.init();
-      CloudSync.pull().finally(() => { CloudSync.listen(); InactivityTimer.start(); Router.init(); });
+      CloudSync.pull().finally(() => { CloudSync.listen(); InactivityTimer.start(); updateUserBar(); Router.init(); });
     })
     .catch(e => {
       errEl.textContent = friendlyAuthError(e.code);
       errEl.style.display = 'block';
     });
+}
+
+function updateUserBar() {
+  const bar = document.getElementById('user-bar');
+  const nameEl = document.getElementById('user-bar-name');
+  if (!bar || !nameEl) return;
+  if (Auth.email) {
+    const name = Auth._user && Auth._user.displayName ? Auth._user.displayName : displayUsername(Auth.email);
+    nameEl.textContent = `Signed in as ${name}`;
+    bar.hidden = false;
+  } else {
+    bar.hidden = true;
+  }
 }
 
 function handleSignOut() {
@@ -883,8 +905,136 @@ function handleSignOut() {
     CloudSync._docRef = null;
     Store._cache      = null;
     localStorage.removeItem(storeKey);
+    updateUserBar();
     renderSignIn();
   });
+}
+
+async function showProfileModal() {
+  const username    = displayUsername(Auth.email || '');
+  const currentName = (Auth._user && Auth._user.displayName) || username;
+
+  // Fetch current recovery email and display name from Firestore
+  let currentEmail = '';
+  try {
+    const app = firebase.apps[0];
+    const doc = await firebase.firestore(app).collection('recovery').doc(username).get();
+    const stored = doc.exists ? (doc.data().recoveryEmail || '') : '';
+    // Only show if it looks like a valid email
+    currentEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stored) ? stored : '';
+  } catch (e) { /* ignore */ }
+
+  showModal(`
+    <div class="modal-header">
+      <h2>Profile</h2>
+      <button class="btn-icon" style="color:var(--text-muted)" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:12px 16px">
+      <div style="margin-bottom:14px">
+        <div class="form-label">Username</div>
+        <div style="padding:8px 10px;background:var(--bg);border-radius:8px;font-size:15px;font-weight:600;color:var(--text)">${username}</div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
+        <div class="form-group">
+          <label class="form-label">Display Name</label>
+          <input id="profile-displayname" type="text" class="input" placeholder="Your name" value="${currentName}" autocomplete="name">
+        </div>
+        <div id="profile-name-error" style="color:var(--danger);font-size:13px;margin-bottom:4px;display:none"></div>
+        <button class="btn btn-primary btn-block" onclick="handleUpdateDisplayName()">Update Display Name</button>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
+        <div class="form-group">
+          <label class="form-label">Recovery Email</label>
+          <input id="profile-email" type="email" class="input" placeholder="Enter email address" value="${currentEmail}" autocomplete="off">
+        </div>
+        <div id="profile-email-error" style="color:var(--danger);font-size:13px;margin-bottom:4px;display:none"></div>
+        <button class="btn btn-primary btn-block" onclick="handleUpdateEmail()">Update Email</button>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div class="form-label" style="margin-bottom:10px">Change Password</div>
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input id="profile-current-pw" type="password" class="input" placeholder="Enter current password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input id="profile-new-pw" type="password" class="input" placeholder="Min 6 characters">
+        </div>
+        <div id="profile-error" style="color:var(--danger);font-size:13px;margin-bottom:8px;display:none"></div>
+        <button class="btn btn-primary btn-block" onclick="handleChangePassword()">Update Password</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">Close</button>
+    </div>
+  `);
+}
+
+async function handleUpdateDisplayName() {
+  const username    = displayUsername(Auth.email || '');
+  const displayName = document.getElementById('profile-displayname').value.trim();
+  const errEl       = document.getElementById('profile-name-error');
+  errEl.style.display = 'none';
+
+  if (!displayName) { errEl.textContent = 'Enter a display name.'; errEl.style.display = 'block'; return; }
+
+  try {
+    const app  = firebase.apps[0];
+    const user = firebase.auth(app).currentUser;
+    await user.updateProfile({ displayName });
+    // Also save to Firestore so it persists
+    await firebase.firestore(app).collection('recovery').doc(username).set({ displayName }, { merge: true });
+    Auth._user = firebase.auth(app).currentUser;
+    updateUserBar();
+    showToast('Display name updated!', 'success');
+  } catch (err) {
+    errEl.textContent = 'Failed to update display name. Try again.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function handleUpdateEmail() {
+  const username = displayUsername(Auth.email || '');
+  const email    = document.getElementById('profile-email').value.trim();
+  const errEl    = document.getElementById('profile-email-error');
+  errEl.style.display = 'none';
+
+  if (!email) { errEl.textContent = 'Enter an email address.'; errEl.style.display = 'block'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Enter a valid email address.'; errEl.style.display = 'block'; return; }
+
+  try {
+    const app = firebase.apps[0];
+    await firebase.firestore(app).collection('recovery').doc(username).set({ recoveryEmail: email }, { merge: true });
+    showToast('Email updated successfully!', 'success');
+  } catch (err) {
+    errEl.textContent = 'Failed to update email. Try again.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function handleChangePassword() {
+  const currentPw = document.getElementById('profile-current-pw').value.trim();
+  const newPw     = document.getElementById('profile-new-pw').value.trim();
+  const errEl     = document.getElementById('profile-error');
+  errEl.style.display = 'none';
+
+  if (!currentPw) { errEl.textContent = 'Enter your current password.'; errEl.style.display = 'block'; return; }
+  if (!newPw)     { errEl.textContent = 'Enter a new password.'; errEl.style.display = 'block'; return; }
+  if (newPw.length < 6) { errEl.textContent = 'New password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+  if (currentPw === newPw) { errEl.textContent = 'New password must be different from current.'; errEl.style.display = 'block'; return; }
+
+  try {
+    const app  = firebase.apps[0];
+    const user = firebase.auth(app).currentUser;
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPw);
+    await user.reauthenticateWithCredential(cred);
+    await user.updatePassword(newPw);
+    hideModal();
+    showToast('Password updated successfully!', 'success');
+  } catch (err) {
+    errEl.textContent = err.code === 'auth/wrong-password' ? 'Current password is incorrect.' : 'Failed to update password. Try again.';
+    errEl.style.display = 'block';
+  }
 }
 
 function friendlyAuthError(code) {
@@ -918,14 +1068,14 @@ function renderHome() {
     const leader = getRankedPlayers(active)[0];
     activeHtml = `
       <div class="card card-active" onclick="Router.navigate('/game/${active.id}')">
-        <div class="card-tag">Active Game</div>
-        <div class="card-title">${formatDateShort(active.date)}</div>
-        <div class="card-meta">
+        <div style="text-align:center;margin-bottom:4px"><span class="card-tag">Active Game</span></div>
+        <div class="card-title" style="text-align:center;font-size:20px;font-weight:900">${formatDateShort(active.date)}</div>
+        <div class="card-meta" style="text-align:center">
           ${active.players.map(p => p.name).join(', ')}
           &middot; ${active.rounds.length} round${active.rounds.length !== 1 ? 's' : ''}
         </div>
         ${leader && active.rounds.length > 0
-          ? `<div class="card-leader">Leading: ${leader.name} (${leader.total})</div>`
+          ? `<div class="card-leader" style="text-align:center">Leading: ${leader.name} (${leader.total})</div>`
           : ''}
         <div class="card-arrow">Continue →</div>
       </div>`;
@@ -965,6 +1115,19 @@ function renderHome() {
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/players')">👥 Register Players</button>
         <button class="btn btn-outline" style="flex:1;background:#e0f0ff;border-color:#b0d4f1" onclick="Router.navigate('/rules')">Rules</button>
       </div>
+      <div style="margin-top:10px;text-align:center;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
+        <p style="font-size:12px;color:#92400e;margin:0 0 6px">Enjoying the app? Support the developer!</p>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <div style="text-align:center">
+            <button onclick="buyMeChai()" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer">☕ Buy me a Chai</button>
+            <div style="font-size:10px;color:#92400e;margin-top:3px">India (UPI)</div>
+          </div>
+          <div style="text-align:center">
+            <button onclick="openKofi()" style="background:#29abe0;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer">☕ Buy me a Coffee</button>
+            <div style="font-size:10px;color:#92400e;margin-top:3px">International</div>
+          </div>
+        </div>
+      </div>
       <!-- AdSense Banner -->
       <div style="margin:12px 0;text-align:center;min-height:60px">
         <ins class="adsbygoogle"
@@ -977,11 +1140,6 @@ function renderHome() {
       </div>
       ${historyHtml}
       ${emptyHtml}
-      ${Auth.email ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:13px;color:var(--text-muted)">
-        <span>Signed in as <strong>${displayUsername(Auth.email)}</strong></span>
-        <button class="btn btn-sm btn-outline btn-danger" onclick="handleSignOut()">Sign Out</button>
-      </div>` : ''}
     </div>
   `);
 }
@@ -1296,7 +1454,11 @@ function renderGame(params) {
     const effectiveMoney = getEffectiveMoney(session);
     const settlementHtml = Object.keys(effectiveMoney).length > 0 ? `
       <div class="settlement-card">
-        <div class="settlement-title">💰 Settlement</div>
+        <div class="settlement-title">Settlement</div>
+        <div class="settlement-row" style="border-bottom:2px solid var(--border);margin-bottom:2px">
+          <span class="settlement-name" style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Player</span>
+          <span class="settlement-amount" style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Net Points</span>
+        </div>
         ${session.players.filter(p => effectiveMoney[p.id] !== undefined).map(p => {
           const amt = effectiveMoney[p.id];
           return `
@@ -1310,11 +1472,22 @@ function renderGame(params) {
       </div>` : '';
     completedHtml = `
       <div class="card card-completed">
-        <div class="completed-title">Game Over</div>
         <div class="winner-name">🏆 ${winner ? winner.name : '—'}</div>
-        <div class="completed-date">${formatDate(session.date)}</div>
       </div>
-      ${settlementHtml}`;
+      ${settlementHtml}
+      <div style="margin:10px 0;text-align:center;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
+        <p style="font-size:12px;color:#92400e;margin:0 0 6px">Had a great game? Support the developer!</p>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <div style="text-align:center">
+            <button onclick="buyMeChai()" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer">☕ Buy me a Chai</button>
+            <div style="font-size:10px;color:#92400e;margin-top:3px">India (UPI)</div>
+          </div>
+          <div style="text-align:center">
+            <button onclick="openKofi()" style="background:#29abe0;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer">☕ Buy me a Coffee</button>
+            <div style="font-size:10px;color:#92400e;margin-top:3px">International</div>
+          </div>
+        </div>
+      </div>`;
   }
 
   /* Rank list — shows OUT badge and Rejoin button for knocked-out players */
@@ -1329,7 +1502,7 @@ function renderGame(params) {
   const orderedPlayers = session.players.map(p => ({ ...p, total: totals[p.id] ?? 0 }));
   const rankHtml = `
     <div class="rank-list" style="margin-bottom:14px">
-      <div style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;font-size:13px;font-weight:700;color:#fff;background:#4f46e5;padding:6px 10px;border-radius:8px 8px 0 0;gap:0">
+      <div style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;font-size:14px;font-weight:700;color:#fff;background:#4f46e5;padding:4px 8px;border-radius:8px 8px 0 0;gap:0">
         <span style="text-align:center">Player</span>
         <span style="text-align:center;border-left:1px solid rgba(255,255,255,0.4)"></span>
         <span style="text-align:center;border-left:1px solid rgba(255,255,255,0.4)">Total</span>
@@ -1361,7 +1534,7 @@ function renderGame(params) {
           ? `<button class="btn btn-sm" style="background:#fef08a;color:#854d0e;border:1.5px solid #eab308;font-size:11px;padding:3px 6px;min-width:48px" onclick="quitPlayer('${session.id}','${p.id}')">Quit</button>`
           : '';
         return `
-          <div class="rank-item ${rowClass}" style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;gap:0;padding:6px 10px">
+          <div class="rank-item ${rowClass}" style="display:grid;grid-template-columns:1fr 44px 64px 72px 58px;align-items:center;gap:0;padding:4px 8px">
             <span class="rank-name" style="display:flex;align-items:center;gap:6px"><span class="rank-pos">${i + 1}</span>${p.name}</span>
             <span style="text-align:right;border-left:1px solid var(--border);padding-right:4px">${badge}</span>
             <span class="rank-score" style="text-align:right;border-left:1px solid var(--border);padding-right:4px">${p.total}</span>
@@ -1370,10 +1543,10 @@ function renderGame(params) {
           </div>`;
       }).join('')}
       ${isActive ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px 6px;font-size:12px;gap:6px">
-        <button id="btn-read-scores" onclick="readOutScores('${session.id}')" style="font-size:11px;color:#6366f1;background:none;border:1px solid #6366f1;border-radius:6px;cursor:pointer;padding:2px 8px;white-space:nowrap">🔊 Read Scores</button>
-        <span style="color:var(--text-muted);flex:1;text-align:center;white-space:nowrap">Dealer <strong style="color:#15803d">${currentDealer ? currentDealer.name : '—'}</strong></span>
-        <button onclick="showUpdateDealerModal('${session.id}')" style="font-size:11px;color:#6366f1;background:none;border:none;cursor:pointer;text-decoration:underline;white-space:nowrap">Update Dealer</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:8px;border-top:1px solid var(--border);margin-top:8px">
+        <button id="btn-read-scores" onclick="readOutScores('${session.id}')" style="font-size:12px;font-weight:600;color:#fff;background:#6366f1;border:none;border-radius:8px;cursor:pointer;padding:6px 12px;white-space:nowrap">🔊 Read Scores</button>
+        <span style="color:var(--text-muted);flex:1;text-align:center;font-size:12px;white-space:nowrap">Dealer <strong style="color:#15803d">${currentDealer ? currentDealer.name : '—'}</strong></span>
+        <button onclick="showUpdateDealerModal('${session.id}')" style="font-size:12px;font-weight:600;color:#fff;background:#6366f1;border:none;border-radius:8px;cursor:pointer;padding:6px 12px;white-space:nowrap">Update Dealer</button>
       </div>` : ''}
     </div>`;
 
@@ -1401,8 +1574,8 @@ function renderGame(params) {
       ${completedHtml}
       <div class="game-rank-section">${rankHtml}</div>
       <div class="game-scroll-area">
-        <div class="score-table-wrapper">${tableHtml}</div>
-        ${legendHtml}
+        ${isActive ? `<div class="score-table-wrapper">${tableHtml}</div>` : ''}
+        ${isActive ? legendHtml : ''}
       </div>
       <div class="game-bottom-bar">${isActive ? `
         <div style="display:flex;align-items:center;gap:6px;padding:8px 12px">
@@ -1419,7 +1592,7 @@ function renderGame(params) {
       </div>
     </div>
   `);
-  document.body.classList.add('game-active');
+  if (isActive) document.body.classList.add('game-active');
 }
 
 function buildScoreTable(session, isActive) {
@@ -2090,7 +2263,7 @@ function confirmEndGame(sessionId) {
 
   showModal(`
     <div class="modal-header">
-      <h2>Game Settlement 💰</h2>
+      <h2>Game Settlement</h2>
       <button class="btn-icon" onclick="hideModal()">✕</button>
     </div>
     <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
@@ -2757,7 +2930,7 @@ function renderHistory(params) {
     <div class="player-summary-card">
       <div class="section-title">Player Summary</div>
       <div class="summary-row summary-header">
-        <span class="summary-name">Name</span>
+        <span class="summary-name">Player</span>
         <span class="summary-net">Net Points</span>
       </div>
       ${summaryPlayers.map(([name, net]) => `
@@ -2772,6 +2945,19 @@ function renderHistory(params) {
   setContent(`
     <div>
       ${summaryHtml}
+      <div style="margin:10px 0;text-align:center;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
+        <p style="font-size:12px;color:#92400e;margin:0 0 6px">Enjoying the app? Support the developer!</p>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <div style="text-align:center">
+            <button onclick="buyMeChai()" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer">☕ Buy me a Chai</button>
+            <div style="font-size:10px;color:#92400e;margin-top:3px">India (UPI)</div>
+          </div>
+          <div style="text-align:center">
+            <button onclick="openKofi()" style="background:#29abe0;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer">☕ Buy me a Coffee</button>
+            <div style="font-size:10px;color:#92400e;margin-top:3px">International</div>
+          </div>
+        </div>
+      </div>
       <!-- AdSense Banner -->
       <div style="margin:12px 0;text-align:center;min-height:60px">
         <ins class="adsbygoogle"
@@ -2822,6 +3008,22 @@ function renderHistory(params) {
    INIT
    ============================================================ */
 
+function openKofi() {
+  window.location.href = 'https://ko-fi.com/ravikiran0209';
+}
+
+function buyMeChai() {
+  const upiId   = 'ravi.nagam.kiran-2@okaxis';
+  const name    = 'Rummy Score Board';
+  const note    = 'Buy me a chai';
+  const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&tn=${encodeURIComponent(note)}&cu=INR`;
+
+  // Try UPI deep link (works on Android with any UPI app)
+  const a = document.createElement('a');
+  a.href = upiLink;
+  a.click();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   /* Back button */
   document.getElementById('btn-back').addEventListener('click', () => {
@@ -2863,7 +3065,7 @@ document.addEventListener('DOMContentLoaded', () => {
     CloudSync.pull()
       .then(() => {})
       .catch(() => {})
-      .finally(() => { CloudSync.listen(); Router.init(); });
+      .finally(() => { CloudSync.listen(); InactivityTimer.start(); updateUserBar(); Router.init(); });
   });
 
   /* Register service worker for offline support / PWA */

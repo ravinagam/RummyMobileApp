@@ -32,6 +32,12 @@
       </button>
     </header>
 
+    <div id="user-bar" hidden>
+      <button class="btn btn-sm btn-outline" onclick="showProfileModal()" style="padding:4px 10px;font-size:12px">👤 Profile</button>
+      <span id="user-bar-name"></span>
+      <button class="btn btn-sm btn-outline btn-danger" onclick="handleSignOut()">Sign Out</button>
+    </div>
+
     <main id="page-content"></main>
   </div>
 
